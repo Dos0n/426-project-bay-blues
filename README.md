@@ -7,7 +7,7 @@ Blue Light
 |-----------------|-------------|
 |austinfairbanks|afairbanks@umass.edu|
 |Dos0n|bdo@umass.edu
-|                 |             |
+|ShriRadhakrishnan1|sradhakrishn@umass.edu|
 |                 |             |
 
 ## Domain Description
