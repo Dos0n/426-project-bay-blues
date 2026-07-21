@@ -20,4 +20,6 @@ From a Computing for the Common Good perspective, a reliable emergency response 
 
 ## Sprint 1 Deliverables
 
+- [Project Description](docs/PROJECT.md)
 - [Initial Service List](docs/SERVICES.md)
+- [Service Level Objectives](docs/SLO.md)
