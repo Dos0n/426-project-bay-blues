@@ -18,7 +18,7 @@
   },
   {
     "incidentId": "91af58b0-8df3-4b99-a5d0-b60618f4d2bb",
-    "emergencyType": "security",
+    "emergencyType": "criminal",
     "severity": "medium",
     "status": "triaged",
     "location": {
@@ -28,7 +28,7 @@
       "accuracyMeters": 18,
       "capturedAt": "2026-07-25T20:14:55.000Z"
     },
-    "description": "Security assistance requested near the boarding area",
+    "description": "Police assistance requested near the boarding area",
     "reportedAt": "2026-07-25T20:15:00.000Z",
     "updatedAt": "2026-07-25T20:16:30.000Z",
     "version": 2
@@ -52,7 +52,7 @@
   },
   {
     "incidentId": "f7dd7ab7-31c0-4ba5-b15c-8df9a716b6c2",
-    "emergencyType": "crisis",
+    "emergencyType": "mental_health",
     "severity": "high",
     "status": "dispatched",
     "location": {
@@ -62,7 +62,7 @@
       "accuracyMeters": 14,
       "capturedAt": "2026-07-25T20:24:56.000Z"
     },
-    "description": "Crisis-response assistance requested",
+    "description": "Mental-health crisis response requested",
     "reportedAt": "2026-07-25T20:25:00.000Z",
     "updatedAt": "2026-07-25T20:27:10.000Z",
     "version": 4

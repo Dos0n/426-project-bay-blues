@@ -56,7 +56,7 @@ Field contracts:
 | Field | Type | Contract |
 | --- | --- | --- |
 | `incidentId` | UUID | Required server-assigned UUID v4 generated with `crypto.randomUUID()` and serialized as a JSON string. |
-| `emergencyType` | enum | Optional at creation: `medical`, `fire`, `security`, `crisis`, `other`, or `unknown`; defaults to `unknown`. |
+| `emergencyType` | enum | Optional operational category for downstream dispatch: `medical`, `fire`, `criminal`, `mental_health`, `other`, or `unknown`; defaults to `unknown`. |
 | `severity` | enum | Optional at creation: `low`, `medium`, `high`, `critical`, or `unassessed`; defaults to `unassessed`. |
 | `status` | enum | Required server-owned value: `reported`, `triaged`, `routed`, `dispatched`, `resolved`, or `cancelled`; initially `reported`. |
 | `location` | object | Required actionable location for regional routing and responder dispatch. |
@@ -141,6 +141,11 @@ Creates a simulated incident in runtime memory.
 system can route the incident and responders know where to go. Emergency type
 and severity remain optional because they may not be known during an urgent
 report.
+
+The emergency-type values correspond to distinct downstream response targets:
+medical services, the fire department, police, or mental-health crisis
+responders. `other` and `unknown` allow reporting to proceed when none can be
+selected confidently.
 
 When supplied, the following validation applies:
 
