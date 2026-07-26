@@ -12,7 +12,7 @@ This document contains the complete relevant user prompts and assistant response
 
 ## Scope of AI assistance
 
-AI assisted with interpreting the Sprint 2 rubric, selecting and documenting the incident-service scope, creating the Git branch, designing and implementing the Express endpoints, producing synthetic fixtures, configuring Docker and Docker Compose, reviewing and verifying behavior, hardening ignore rules, preparing Git and pull-request materials, and preparing disclosure records. The student directed service ownership, fidelity, field requirements, endpoint scope, persistence semantics, and which review recommendations to implement or defer.
+AI assisted with interpreting the Sprint 2 rubric, selecting and documenting the incident-service scope, creating Git branches, designing and implementing the Express endpoints, producing synthetic fixtures, configuring Docker and Docker Compose, reviewing and verifying behavior, hardening ignore rules, splitting code and disclosure pull requests, applying student review feedback, validating the revised behavior, preparing commits and pull-request updates, and regenerating disclosure records. The student directed service ownership, fidelity, field requirements, endpoint scope, persistence semantics, operational emergency categories, validation organization, fixture trust, middleware documentation, PR separation, and which review recommendations to implement or defer.
 
 ## AI-assisted files
 
@@ -21,7 +21,7 @@ The following files were generated or substantially modified with AI assistance 
 - `.env.example`
 - `.gitignore`
 - `docker-compose.yml`
-- `docs/SERVICES.md` (incident-service ownership and API-contract link only)
+- `docs/SERVICES.md` (incident-service ownership only; no inline disclosure comment per student review)
 - `incident-service/.dockerignore`
 - `incident-service/Dockerfile`
 - `incident-service/docs/API.md`
@@ -29,7 +29,7 @@ The following files were generated or substantially modified with AI assistance 
 
 ## Strict JSON disclosure
 
-AI assisted with `incident-service/package.json`, the npm-generated `incident-service/package-lock.json`, and `incident-service/data/incidents.json`. These strict JSON files cannot contain inline comments, so their AI assistance is documented here. The raw JSONL transcript also remains unmodified.
+AI assisted with `incident-service/package.json`, the npm-generated `incident-service/package-lock.json`, and `incident-service/data/incidents.json`, including review-driven fixture category changes. These strict JSON files cannot contain inline comments, so their AI assistance is documented here. The raw JSONL transcript also remains unmodified.
 
 ## Complete relevant transcript
 
@@ -2193,5 +2193,236 @@ Ignore behavior and all static checks now pass. I’m starting the final grader-
 The full validation pass succeeded, including restart semantics, and the stack is cleaned up. I’m refreshing the disclosure snapshot now so this final review/validation request is included before the commit; after that, I’ll perform only the Git/GitHub operations against the frozen tree.
 ````
 
-<!-- AI: End AI-assisted disclosure document. See ai/chats/austinf-sprint2/austinf-sprint2.jsonl. -->
+### 108. Assistant response
 
+````text
+`origin/main` advanced since this branch was created. I’m inspecting those teammate commits before committing so the PR is based cleanly and does not overwrite their work. If the changes are non-overlapping, I’ll commit locally and rebase onto the updated `main`; if they overlap, I’ll reconcile carefully before pushing.
+````
+
+### 109. Assistant response
+
+````text
+The full static and Docker behavior pass is clean, including restart semantics and ignore-rule checks. I’m staging the exact Sprint 2 files now, then I’ll review the staged footprint before creating the commit and rebasing onto the latest `main`.
+````
+
+### 110. Assistant response
+
+````text
+The staged check surfaced only whitespace embedded in three verbatim user prompts plus the generated disclosure’s final blank line—no source-code whitespace defects. I’m preserving those prompt bytes because the course disclosure requires an exact transcript, and I’m reviewing the staged file list and size separately before committing.
+````
+
+### 111. Assistant response
+
+````text
+The staged scope is exactly 14 intended files: service runtime/data/API docs, Compose and image scaffolding, ownership documentation, ignore/env templates, and the required disclosure pair plus raw JSONL. There are no unrelated tracked changes, so I’m creating the single feature commit now.
+````
+
+### 112. Assistant response
+
+````text
+The commit is created as `fb32867`. Since `origin/main` gained only README, project, and SLO documentation, I’m rebasing this commit onto it; those paths do not overlap the incident-service work.
+````
+
+### 113. Assistant response
+
+````text
+The rebase completed without conflicts, and the post-rebase syntax and Compose configuration checks still pass with a clean worktree. The final commit is now `05bb2e4`; I’m pushing that branch next.
+````
+
+### 114. Assistant response
+
+````text
+The branch is pushed successfully. GitHub reports the repository’s canonical URL has moved to `Dos0n/426-project-bay-blues`; I’ll use that canonical repository for the PR and first verify there isn’t already an open PR for this branch.
+````
+
+### 115. Assistant response
+
+````text
+No existing PR was found, and GitHub authentication is valid. I’m drafting the PR around the service boundary and review decisions—not just a file dump—with focused feedback questions for teammates.
+````
+
+### 116. Assistant response
+
+````text
+PR #1 is open. I’m doing the final handoff check now: confirming its base/head, commit, body, branch cleanliness, and remote tracking state so the link I return is the actual review-ready PR.
+````
+
+### 117. Assistant response
+
+````text
+Completed and pushed.
+
+- Commit: `05bb2e4` — `Implement Sprint 2 incident service`
+- Branch: `sprint-2-austin-fairbanks-implement-incident-service`
+- PR: [Sprint 2: implement incident service](https://github.com/Dos0n/426-project-bay-blues/pull/1)
+
+Final validation passed:
+
+- Gitignore and Docker-ignore rules correctly exclude environment files, dependencies, logs, and OS artifacts while preserving `.env.example`.
+- Docker Compose build and health check.
+- Fixture lookup, POST-then-GET, validation/error responses, and simulated latency.
+- Restart removes runtime-created incidents while retaining fixtures.
+- Node syntax, JSON/JSONL validity, fixture integrity, dependency tree, Compose configuration, and secret scan.
+- Branch is clean, rebased onto current `origin/main`, and matches the pushed commit.
+
+The PR includes the concise implementation plan, design rationale, file locations, validation evidence, and specific questions for human reviewers. It has not been merged.
+````
+
+### 118. User prompt
+
+````text
+Seperate the AI chat PR and actual code PR into two different ones
+````
+
+### 119. Assistant response
+
+````text
+I’ll split the combined change into two clean, independent branches based directly on current `origin/main`: one containing only service/code/docs scaffolding, and one containing only `AI-DISCLOSURE.md` plus the raw chat folder. I’ll open both PRs, cross-link them, and close the combined PR as superseded so its mixed history is not used for review.
+````
+
+### 120. Assistant response
+
+````text
+The combined branch is clean and PR #1 is still open. I’m now building the code branch from `origin/main` by restoring only the runtime, fixtures, API docs, Compose/Docker files, service ownership, and ignore/env templates—excluding both disclosure locations entirely.
+````
+
+### 121. Assistant response
+
+````text
+The code-only commit is clean at `dbfa742` with 11 files and no disclosure/chat artifacts. I’m creating the second branch from the same `origin/main`, restoring only the root disclosure and `ai/chats/austinf-sprint2/` records.
+````
+
+### 122. Assistant response
+
+````text
+The disclosure branch contains exactly the three intended staged artifacts, and the Markdown mirror matches the root file while every JSONL line parses. One local `incident-service/` directory remains untracked because `node_modules` survived the branch switch after the code branch’s `.gitignore` disappeared; I’m confirming it contains only generated dependencies before cleaning the working tree.
+````
+
+### 123. Assistant response
+
+````text
+The disclosure-only commit is `d2184ac` with exactly three files. Generated dependencies were moved safely to a temporary location rather than deleted. Both replacement branches are now cleanly based on the same `main`; I’m pushing them before opening the two focused PRs.
+````
+
+### 124. Assistant response
+
+````text
+Both branches are pushed. I’m opening the code PR and disclosure PR now with descriptions tailored to their separate review purposes; after GitHub assigns numbers, I’ll add direct cross-links and retire the combined PR.
+````
+
+### 125. Assistant response
+
+````text
+The split PRs are now #2 (code) and #3 (AI records). I’m adding explicit cross-links to both descriptions, then I’ll close PR #1 with a note directing reviewers to the replacements.
+````
+
+### 126. Assistant response
+
+````text
+The original combined PR is closed and points to the replacements. I’m running the last separation audit now: PR #2 must contain only the 11 implementation files, PR #3 only the three disclosure artifacts, and both must target `main`.
+````
+
+### 127. Assistant response
+
+````text
+The separation audit is exact: PR #2 has only the 11 implementation/configuration files; PR #3 has only the three disclosure/chat files; both are open against `main`, and PR #1 is closed. I’m returning the local checkout to the code branch and restoring the generated dependency folder I temporarily moved, without changing either commit.
+````
+
+### 128. Assistant response
+
+````text
+Split completed:
+
+- [PR #2 — Incident service code](https://github.com/Dos0n/426-project-bay-blues/pull/2)
+  - 11 implementation/configuration files
+  - Commit `dbfa742`
+  - No disclosure or chat artifacts
+
+- [PR #3 — AI disclosure and chat](https://github.com/Dos0n/426-project-bay-blues/pull/3)
+  - Root and sprint-specific disclosure Markdown
+  - Raw JSONL transcript
+  - Commit `d2184ac`
+  - No service code
+
+Both PRs target `main` and cross-reference each other. The original combined PR #1 was closed as superseded. The local checkout is clean and currently on the code-only branch.
+````
+
+### 129. User prompt
+
+````text
+Given my review, revise the files, remake the ai disclosures and such, update both PRs with commits and pushes, and then give a little summary of what you did
+````
+
+### 130. Assistant response
+
+````text
+I’ll pull the review feedback from both open PRs, map each comment to the code or disclosure branch, and apply the requested revisions. I’m also using the repository’s AI-disclosure skill because regenerating the raw chat and verbatim disclosure is part of this update; I’ll read its workflow before changing those artifacts.
+````
+
+### 131. Assistant response
+
+````text
+I found six concrete code-review requests on PR #2 and none on the disclosure PR: simplify the service-list edit, use operational emergency categories, trust fixture generation, refactor request validation for readability, keep venue optional, and explain the Express middleware chain. I’m retrieving the exact wording of every inline comment before editing so none gets lost in the earlier truncated output.
+````
+
+### 132. Assistant response
+
+````text
+The code revisions I’m applying are narrow and review-driven: operational types become `medical`, `fire`, `criminal`, `mental_health`, `other`, and `unknown`; fixture trust checks are removed; validation moves into a reusable field-assurance registry; optional venue remains explicitly accepted; middleware order is documented; and the shared service list returns to its original wording with only Austin’s ownership added. The disclosure skill also requires these AI-assisted edits to remain traceable in the regenerated disclosure, even though the simple service-list line itself will not carry an inline disclosure comment per your review.
+````
+
+### 133. Assistant response
+
+````text
+The first patch was rejected atomically because one documentation paragraph wrapped differently than expected, so no partial edit landed. I also caught a draft variable-reference mistake before it reached disk. I’m splitting the changes into smaller patches now so each review item is easy to inspect and verify.
+````
+
+### 134. Assistant response
+
+````text
+The revised code now passes syntax and strict-JSON checks, and the diff matches all seven comments. Before committing it, I’m running the service end to end with two review-specific cases that were not part of the earlier pass: a valid `criminal` report with no venue, and rejection of the retired `security` value.
+````
+
+### 135. Assistant response
+
+````text
+The rebuilt service is healthy. A venue-free `criminal` POST returns 201 and is immediately retrievable; the retired `security` type returns the documented 400; and the updated criminal fixture returns correctly. I’m shutting down the validation stack and committing this focused code-review response.
+````
+
+### 136. Assistant response
+
+````text
+The code revision commit is `ed8c508`. The AI-disclosure skill now requires refreshing both the raw session and the verbatim Markdown record. I’m inspecting the repository’s save helper, then I’ll switch to the disclosure branch and regenerate only those three artifacts.
+````
+
+### 137. Assistant response
+
+````text
+The save helper copies the raw Codex session but intentionally does not synthesize Markdown, so I’ll preserve that raw log and regenerate the human-readable transcript separately from its user/assistant message events. First I’m pushing the validated code commit so PR #2 updates independently.
+````
+
+### 138. Assistant response
+
+````text
+The AI-disclosure workflow is causing one workspace action: I’m using a temporary Git worktree for PR #3 so the large chat artifacts can be regenerated without switching away from—or contaminating—the clean code branch. The raw session will be copied through the mandated `save-chat.sh` helper using the known root-session path.
+````
+
+### 139. Assistant response
+
+````text
+The code PR is updated. For the disclosure PR, I’m now freezing the current root-session snapshot through `save-chat.sh`, then mechanically rebuilding both Markdown copies from the user/assistant message events in that saved JSONL. The refreshed scope will include the review-driven enum, validation, fixture-trust, middleware, PR-splitting, validation, commit, and push work; strict JSON changes remain documented because those files cannot carry comments.
+````
+
+### 140. Assistant response
+
+````text
+The regenerated disclosure now contains 139 verbatim user/assistant messages, including this review cycle; both Markdown copies match, the raw JSONL parses line-by-line and matches the root session snapshot, and only the three disclosure files changed. I’m committing and pushing that refresh to PR #3 now.
+````
+
+### 141. Assistant response
+
+````text
+The integrity guard caught that the live root JSONL had advanced after the earlier snapshot—expected in an ongoing session, but worth correcting. I’m refreshing it once more and performing regeneration, comparison, commit, and push in one operation so PR #3 receives the latest stable snapshot available before this handoff.
+````
+
+<!-- AI: End AI-assisted disclosure document. See ai/chats/austinf-sprint2/austinf-sprint2.jsonl. -->
