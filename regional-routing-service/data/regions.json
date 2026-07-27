@@ -1,0 +1,156 @@
+[
+  {
+    "regionId": "umass-north-campus",
+    "regionName": "North Campus",
+    "center": { "latitude": 42.3912, "longitude": -72.5267 },
+    "venues": ["North Campus Library"],
+    "responseGroups": [
+      {
+        "id": "umpd-ems-north",
+        "name": "UMPD / EMS North",
+        "types": ["medical", "security"],
+        "emergencyTypes": ["medical", "other", "unknown"]
+      },
+      {
+        "id": "umpd-north",
+        "name": "UMPD North Patrol",
+        "types": ["police", "security"],
+        "emergencyTypes": ["criminal", "other", "unknown"]
+      },
+      {
+        "id": "fire-ems-north",
+        "name": "Amherst Fire / EMS North",
+        "types": ["fire", "medical"],
+        "emergencyTypes": ["fire"]
+      },
+      {
+        "id": "crisis-north",
+        "name": "Crisis Response North",
+        "types": ["mental_health", "security"],
+        "emergencyTypes": ["mental_health"]
+      }
+    ]
+  },
+  {
+    "regionId": "umass-central-transit",
+    "regionName": "Central Transit Hub",
+    "center": { "latitude": 42.3845, "longitude": -72.5283 },
+    "venues": ["Central Transit Hub"],
+    "responseGroups": [
+      {
+        "id": "umpd-transit",
+        "name": "UMPD Transit Detail",
+        "types": ["police", "security"],
+        "emergencyTypes": ["criminal", "other", "unknown"]
+      },
+      {
+        "id": "ems-transit",
+        "name": "Transit EMS Unit",
+        "types": ["medical"],
+        "emergencyTypes": ["medical"]
+      },
+      {
+        "id": "fire-transit",
+        "name": "Amherst Fire Transit Sector",
+        "types": ["fire", "medical"],
+        "emergencyTypes": ["fire"]
+      },
+      {
+        "id": "crisis-transit",
+        "name": "Crisis Response Transit",
+        "types": ["mental_health", "security"],
+        "emergencyTypes": ["mental_health"]
+      }
+    ]
+  },
+  {
+    "regionId": "umass-riverside-stadium",
+    "regionName": "Riverside Stadium",
+    "center": { "latitude": 42.3881, "longitude": -72.5239 },
+    "venues": ["Riverside Stadium", "Mullins Center"],
+    "responseGroups": [
+      {
+        "id": "event-security-stadium",
+        "name": "Stadium Event Security",
+        "types": ["security", "police"],
+        "emergencyTypes": ["criminal", "other", "unknown"]
+      },
+      {
+        "id": "ems-stadium",
+        "name": "Stadium EMS Standby",
+        "types": ["medical"],
+        "emergencyTypes": ["medical"]
+      },
+      {
+        "id": "fire-stadium",
+        "name": "Stadium Fire Response",
+        "types": ["fire", "medical"],
+        "emergencyTypes": ["fire"]
+      },
+      {
+        "id": "crisis-stadium",
+        "name": "Stadium Crisis Team",
+        "types": ["mental_health", "security"],
+        "emergencyTypes": ["mental_health"]
+      }
+    ]
+  },
+  {
+    "regionId": "umass-wellness-center",
+    "regionName": "Community Wellness Center",
+    "center": { "latitude": 42.3827, "longitude": -72.5321 },
+    "venues": ["Community Wellness Center"],
+    "responseGroups": [
+      {
+        "id": "crisis-wellness",
+        "name": "Wellness Crisis Response",
+        "types": ["mental_health", "medical"],
+        "emergencyTypes": ["mental_health", "medical"]
+      },
+      {
+        "id": "umpd-wellness",
+        "name": "UMPD Wellness Sector",
+        "types": ["police", "security"],
+        "emergencyTypes": ["criminal", "other", "unknown"]
+      },
+      {
+        "id": "fire-wellness",
+        "name": "Amherst Fire Wellness Sector",
+        "types": ["fire", "medical"],
+        "emergencyTypes": ["fire"]
+      }
+    ]
+  },
+  {
+    "regionId": "umass-eastside-shopping",
+    "regionName": "Eastside Shopping Center",
+    "center": { "latitude": 42.3863, "longitude": -72.5354 },
+    "venues": ["Eastside Shopping Center"],
+    "responseGroups": [
+      {
+        "id": "security-eastside",
+        "name": "Eastside Security / UMPD",
+        "types": ["security", "police"],
+        "emergencyTypes": ["criminal", "other", "unknown"]
+      },
+      {
+        "id": "ems-eastside",
+        "name": "Eastside EMS",
+        "types": ["medical"],
+        "emergencyTypes": ["medical"]
+      },
+      {
+        "id": "fire-eastside",
+        "name": "Eastside Fire Response",
+        "types": ["fire", "medical"],
+        "emergencyTypes": ["fire"]
+      },
+      {
+        "id": "crisis-eastside",
+        "name": "Eastside Crisis Response",
+        "types": ["mental_health", "security"],
+        "emergencyTypes": ["mental_health"]
+      }
+    ]
+  }
+]
