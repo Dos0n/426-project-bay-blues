@@ -1,0 +1,8 @@
+# AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
+.env
+.env.*
+!.env.example
+node_modules/
+npm-debug.log*
+.DS_Store
+# AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.

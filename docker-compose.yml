@@ -1,0 +1,22 @@
+# AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
+services:
+  # AI: The incident-service build, runtime configuration, port mapping, and health check were generated with AI assistance.
+  incident-service:
+    build:
+      context: ./incident-service
+    ports:
+      - "${INCIDENT_SERVICE_PORT:-3001}:3000"
+    environment:
+      PORT: "3000"
+      INCIDENT_LATENCY_MS: "${INCIDENT_LATENCY_MS:-200}"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://localhost:3000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 5s
+# AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.

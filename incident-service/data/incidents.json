@@ -1,0 +1,87 @@
+[
+  {
+    "incidentId": "3f0c8c14-6b93-4c4e-9ea4-33d70c42d701",
+    "emergencyType": "medical",
+    "severity": "high",
+    "status": "reported",
+    "location": {
+      "latitude": 42.3912,
+      "longitude": -72.5267,
+      "venue": "North Campus Library",
+      "accuracyMeters": 10,
+      "capturedAt": "2026-07-25T20:09:57.000Z"
+    },
+    "description": "Person requiring immediate medical assistance",
+    "reportedAt": "2026-07-25T20:10:00.000Z",
+    "updatedAt": "2026-07-25T20:10:00.000Z",
+    "version": 1
+  },
+  {
+    "incidentId": "91af58b0-8df3-4b99-a5d0-b60618f4d2bb",
+    "emergencyType": "criminal",
+    "severity": "medium",
+    "status": "triaged",
+    "location": {
+      "latitude": 42.3845,
+      "longitude": -72.5283,
+      "venue": "Central Transit Hub",
+      "accuracyMeters": 18,
+      "capturedAt": "2026-07-25T20:14:55.000Z"
+    },
+    "description": "Police assistance requested near the boarding area",
+    "reportedAt": "2026-07-25T20:15:00.000Z",
+    "updatedAt": "2026-07-25T20:16:30.000Z",
+    "version": 2
+  },
+  {
+    "incidentId": "742b9b2a-df37-46ad-8a46-d50a8f3ed3bd",
+    "emergencyType": "fire",
+    "severity": "critical",
+    "status": "routed",
+    "location": {
+      "latitude": 42.3881,
+      "longitude": -72.5239,
+      "venue": "Riverside Stadium",
+      "accuracyMeters": 8,
+      "capturedAt": "2026-07-25T20:19:58.000Z"
+    },
+    "description": "Smoke visible near a stadium service entrance",
+    "reportedAt": "2026-07-25T20:20:00.000Z",
+    "updatedAt": "2026-07-25T20:21:15.000Z",
+    "version": 3
+  },
+  {
+    "incidentId": "f7dd7ab7-31c0-4ba5-b15c-8df9a716b6c2",
+    "emergencyType": "mental_health",
+    "severity": "high",
+    "status": "dispatched",
+    "location": {
+      "latitude": 42.3827,
+      "longitude": -72.5321,
+      "venue": "Community Wellness Center",
+      "accuracyMeters": 14,
+      "capturedAt": "2026-07-25T20:24:56.000Z"
+    },
+    "description": "Mental-health crisis response requested",
+    "reportedAt": "2026-07-25T20:25:00.000Z",
+    "updatedAt": "2026-07-25T20:27:10.000Z",
+    "version": 4
+  },
+  {
+    "incidentId": "2665c1d6-2b7a-4573-8413-dc880f703edc",
+    "emergencyType": "unknown",
+    "severity": "unassessed",
+    "status": "reported",
+    "location": {
+      "latitude": 42.3863,
+      "longitude": -72.5354,
+      "venue": "Eastside Shopping Center",
+      "accuracyMeters": 25,
+      "capturedAt": "2026-07-25T20:29:59.000Z"
+    },
+    "description": "Emergency assistance requested without classification",
+    "reportedAt": "2026-07-25T20:30:00.000Z",
+    "updatedAt": "2026-07-25T20:30:00.000Z",
+    "version": 1
+  }
+]
