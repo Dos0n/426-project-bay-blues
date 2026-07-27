@@ -34,6 +34,8 @@ const routingLatencyMs = readBoundedInteger(
   0,
   10000,
 );
+// AI: Austin's review fix bounds routing to the simulated local service area. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
+const maximumRoutingDistanceMeters = 10000;
 
 const emergencyTypes = new Set([
   "medical",
@@ -63,7 +65,11 @@ const haversineDistanceMeters = (latitude, longitude, center) => {
 };
 
 const parseCoordinate = (rawValue, fieldName, minimum, maximum) => {
-  if (rawValue === undefined) {
+  // AI: Austin's review fix rejects blank query values before Number converts them to zero. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
+  if (
+    rawValue === undefined ||
+    (typeof rawValue === "string" && rawValue.trim().length === 0)
+  ) {
     return { error: `${fieldName} is required` };
   }
 
@@ -198,7 +204,10 @@ app.get("/route", (request, response, next) => {
       longitudeResult.value,
     );
 
-    if (region === null) {
+    if (
+      region === null ||
+      distanceMeters > maximumRoutingDistanceMeters
+    ) {
       response.status(404).json({
         error: {
           code: "REGION_NOT_FOUND",
