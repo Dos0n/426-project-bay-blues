@@ -1,3 +1,4 @@
+// AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/dos0n-sprint2/.
 import express from "express";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
@@ -249,3 +250,4 @@ app.listen(port, () => {
     }),
   );
 });
+// AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/dos0n-sprint2/.
