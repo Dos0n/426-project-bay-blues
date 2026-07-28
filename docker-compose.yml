@@ -1,6 +1,6 @@
-# AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
+# AI: This file was generated or substantially modified with AI assistance.
+# See AI-DISCLOSURE.md and ai/chats/ for session logs.
 services:
-  # AI: The incident-service build, runtime configuration, port mapping, and health check were generated with AI assistance.
   incident-service:
     build:
       context: ./incident-service
@@ -19,4 +19,44 @@ services:
       timeout: 2s
       retries: 5
       start_period: 5s
-# AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
+
+  regional-routing-service:
+    build:
+      context: ./regional-routing-service
+    environment:
+      PORT: "3000"
+      ROUTING_LATENCY_MS: "${ROUTING_LATENCY_MS:-200}"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://localhost:3000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 5s
+
+  regional-routing-ambassador:
+    build:
+      context: ./regional-routing-ambassador
+    ports:
+      - "${ROUTING_AMBASSADOR_PORT:-3002}:3000"
+    environment:
+      PORT: "3000"
+      UPSTREAM_URL: "${ROUTING_UPSTREAM_URL:-http://regional-routing-service:3000}"
+      UPSTREAM_TIMEOUT_MS: "${ROUTING_UPSTREAM_TIMEOUT_MS:-2000}"
+      MAX_RETRIES: "${ROUTING_MAX_RETRIES:-2}"
+    depends_on:
+      regional-routing-service:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://localhost:3000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
