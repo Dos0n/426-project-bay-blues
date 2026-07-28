@@ -71,6 +71,7 @@ services:
       UPSTREAM_URL: "${INCIDENT_UPSTREAM_URL:-http://incident-service:3000}"
       UPSTREAM_TIMEOUT_MS: "${INCIDENT_UPSTREAM_TIMEOUT_MS:-2000}"
       MAX_RETRIES: "${INCIDENT_MAX_RETRIES:-2}"
+      AMBASSADOR_PROCESSING_DELAY_MS: "${INCIDENT_AMBASSADOR_PROCESSING_DELAY_MS:-50}"
     depends_on:
       incident-service:
         condition: service_healthy

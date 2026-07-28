@@ -36,6 +36,14 @@ const upstreamTimeoutMs = readBoundedInteger(
   60000,
 );
 const maxRetries = readBoundedInteger("MAX_RETRIES", 2, 0, 5);
+// Simulated ambassador-side overhead (request logging and inspection) applied
+// to every proxied response, independent of upstream latency.
+const processingDelayMs = readBoundedInteger(
+  "AMBASSADOR_PROCESSING_DELAY_MS",
+  50,
+  0,
+  5000,
+);
 
 // Only GET/HEAD are safe to retry; a retried POST could create a duplicate incident.
 const idempotentMethods = new Set(["GET", "HEAD"]);
@@ -110,6 +118,8 @@ const proxyRequest = async (request, response, requestBody) => {
         response.set("content-type", contentType);
       }
 
+      // Hold the response for the simulated inspection/logging delay before replying.
+      await sleep(processingDelayMs);
       response.status(upstreamResponse.status).send(responseBody);
       return;
     } catch (error) {
