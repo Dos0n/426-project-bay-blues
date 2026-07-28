@@ -60,3 +60,27 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
+
+  incident-ambassador:
+    build:
+      context: ./incident-ambassador
+    ports:
+      - "${INCIDENT_AMBASSADOR_PORT:-3003}:3000"
+    environment:
+      PORT: "3000"
+      UPSTREAM_URL: "${INCIDENT_UPSTREAM_URL:-http://incident-service:3000}"
+      UPSTREAM_TIMEOUT_MS: "${INCIDENT_UPSTREAM_TIMEOUT_MS:-2000}"
+      MAX_RETRIES: "${INCIDENT_MAX_RETRIES:-2}"
+    depends_on:
+      incident-service:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://localhost:3000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s

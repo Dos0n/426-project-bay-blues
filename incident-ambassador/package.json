@@ -1,0 +1,14 @@
+{
+  "name": "incident-ambassador",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ambassador proxy in front of incident-service",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
