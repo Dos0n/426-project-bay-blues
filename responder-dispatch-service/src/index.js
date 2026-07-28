@@ -43,11 +43,15 @@ const teamsById = new Map(responseTeams.map((team) => [team.teamId, team]));
 
 const dispatches = new Map();
 
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const fieldAssurances = {
   isObject: (value) =>
     value !== null && typeof value === "object" && !Array.isArray(value),
   isNonEmptyString: (value) =>
     typeof value === "string" && value.trim().length > 0,
+  isUuid: (value) => typeof value === "string" && uuidPattern.test(value),
 };
 
 const validateDispatchRequest = (body) => {
@@ -57,8 +61,10 @@ const validateDispatchRequest = (body) => {
 
   const errors = [];
 
-  if (!fieldAssurances.isNonEmptyString(body.incidentId)) {
-    errors.push("incidentId is required and must be a non-empty string");
+  // Matches incident-service's crypto.randomUUID() incident IDs, so a
+  // dispatch can never be created against an ID that could not be real.
+  if (!fieldAssurances.isUuid(body.incidentId)) {
+    errors.push("incidentId is required and must be a UUID");
   }
 
   if (!fieldAssurances.isNonEmptyString(body.teamId)) {
@@ -177,11 +183,16 @@ app.patch("/dispatches/:dispatchId/status", (request, response, next) => {
       return;
     }
 
-    if (!statusOrder.includes(nextStatus)) {
+    const currentIndex = statusOrder.indexOf(dispatch.status);
+    const nextIndex = statusOrder.indexOf(nextStatus);
+
+    if (nextIndex !== currentIndex + 1) {
       response.status(400).json({
         error: {
           code: "VALIDATION_ERROR",
-          message: `status must be one of: ${statusOrder.join(", ")}`,
+          message: `status can only advance from "${dispatch.status}" to "${
+            statusOrder[currentIndex + 1] ?? "(no further status)"
+          }"`,
         },
       });
       return;

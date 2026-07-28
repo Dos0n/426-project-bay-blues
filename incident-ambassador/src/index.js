@@ -65,7 +65,10 @@ const logProxyEvent = (fields) => {
 };
 
 const proxyRequest = async (request, response, requestBody) => {
-  const targetUrl = new URL(request.originalUrl, `${upstreamUrl}/`);
+  // Collapse leading slashes so a path like "//other-host/health" cannot be
+  // parsed as protocol-relative and redirect the proxy to a different host.
+  const sanitizedPath = `/${request.originalUrl.replace(/^\/+/, "")}`;
+  const targetUrl = new URL(sanitizedPath, `${upstreamUrl}/`);
   const isIdempotent = idempotentMethods.has(request.method);
   const maximumAttempts = isIdempotent ? maxRetries + 1 : 1;
   let lastErrorMessage = "Upstream request failed";

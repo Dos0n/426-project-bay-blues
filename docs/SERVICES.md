@@ -14,14 +14,13 @@ flowchart LR
     client[Phone / Web Client]
 
     subgraph compose[Docker Compose]
-        incident[incident-service<br/>Host port 3001<br/>Create and retrieve incidents]
+        incident[incident-service<br/>Internal port 3000<br/>Create and retrieve incidents]
         incidentAmbassador[incident-ambassador<br/>Host port 3003<br/>Proxy, safe retries, and request logging]
         ambassador[regional-routing-ambassador<br/>Host port 3002<br/>Proxy, retries, timeout, and request logging]
         routing[regional-routing-service<br/>Internal port 3000<br/>Select region and response group]
         dispatch[responder-dispatch-service<br/>Host port 3004<br/>Assign and track responder teams]
     end
 
-    client -->|POST /incidents<br/>GET /incidents/:incidentId| incident
     client -->|POST /incidents<br/>GET /incidents/:incidentId| incidentAmbassador
     incidentAmbassador -->|Forward through Compose DNS| incident
     client -->|GET /route<br/>GET /regions| ambassador
@@ -32,9 +31,9 @@ flowchart LR
 The primary services are separate client-facing paths in Sprint 2;
 `incident-service`, `regional-routing-service`, and
 `responder-dispatch-service` do not call each other directly. Two of the
-primary services have their own observable ambassador container sitting in
-front of them: `incident-ambassador` proxies `incident-service`, and
-`regional-routing-ambassador` proxies `regional-routing-service`.
+primary services are only reachable through their own observable ambassador
+container: `incident-ambassador` is the only path to `incident-service`, and
+`regional-routing-ambassador` is the only path to `regional-routing-service`.
 `responder-dispatch-service` is reached directly, with no ambassador in
 front of it.
 

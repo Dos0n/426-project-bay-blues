@@ -4,8 +4,6 @@ services:
   incident-service:
     build:
       context: ./incident-service
-    ports:
-      - "${INCIDENT_SERVICE_PORT:-3001}:3000"
     environment:
       PORT: "3000"
       INCIDENT_LATENCY_MS: "${INCIDENT_LATENCY_MS:-200}"
