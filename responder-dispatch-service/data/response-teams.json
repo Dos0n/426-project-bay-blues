@@ -1,0 +1,12 @@
+[
+  { "teamId": "umpd-ems-north", "name": "UMPD / EMS North", "types": ["medical", "security"], "status": "available" },
+  { "teamId": "umpd-north", "name": "UMPD North Patrol", "types": ["police", "security"], "status": "available" },
+  { "teamId": "fire-ems-north", "name": "Amherst Fire / EMS North", "types": ["fire", "medical"], "status": "available" },
+  { "teamId": "crisis-north", "name": "Crisis Response North", "types": ["mental_health", "security"], "status": "available" },
+  { "teamId": "umpd-transit", "name": "UMPD Transit Detail", "types": ["police", "security"], "status": "available" },
+  { "teamId": "ems-transit", "name": "Transit EMS Unit", "types": ["medical"], "status": "available" },
+  { "teamId": "fire-transit", "name": "Amherst Fire Transit Sector", "types": ["fire", "medical"], "status": "available" },
+  { "teamId": "crisis-transit", "name": "Crisis Response Transit", "types": ["mental_health", "security"], "status": "available" },
+  { "teamId": "event-security-stadium", "name": "Stadium Event Security", "types": ["security", "police"], "status": "available" },
+  { "teamId": "ems-stadium", "name": "Stadium EMS Standby", "types": ["medical"], "status": "available" }
+]

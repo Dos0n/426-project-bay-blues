@@ -85,3 +85,22 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
+
+  responder-dispatch-service:
+    build:
+      context: ./responder-dispatch-service
+    ports:
+      - "${DISPATCH_SERVICE_PORT:-3004}:3000"
+    environment:
+      PORT: "3000"
+      DISPATCH_LATENCY_MS: "${DISPATCH_LATENCY_MS:-200}"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://localhost:3000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 5s
