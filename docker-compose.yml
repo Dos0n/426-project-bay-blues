@@ -18,12 +18,50 @@ services:
       retries: 5
       start_period: 5s
 
-  regional-routing-service:
+  # AI: Sprint 3 uses three explicitly named, identical routing replicas so Caddy can target and test each instance independently.
+  regional-routing-service-a:
     build:
       context: ./regional-routing-service
     environment:
       PORT: "3000"
       ROUTING_LATENCY_MS: "${ROUTING_LATENCY_MS:-200}"
+      REPLICA_ID: "regional-routing-service-a"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://localhost:3000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 5s
+
+  regional-routing-service-b:
+    build:
+      context: ./regional-routing-service
+    environment:
+      PORT: "3000"
+      ROUTING_LATENCY_MS: "${ROUTING_LATENCY_MS:-200}"
+      REPLICA_ID: "regional-routing-service-b"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://localhost:3000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 5s
+
+  regional-routing-service-c:
+    build:
+      context: ./regional-routing-service
+    environment:
+      PORT: "3000"
+      ROUTING_LATENCY_MS: "${ROUTING_LATENCY_MS:-200}"
+      REPLICA_ID: "regional-routing-service-c"
     healthcheck:
       test:
         - CMD
@@ -42,11 +80,12 @@ services:
       - "${ROUTING_AMBASSADOR_PORT:-3002}:3000"
     environment:
       PORT: "3000"
-      UPSTREAM_URL: "${ROUTING_UPSTREAM_URL:-http://regional-routing-service:3000}"
+      # AI: Sprint 3 replica A preserves a working ambassador path until Caddy becomes the shared upstream.
+      UPSTREAM_URL: "${ROUTING_UPSTREAM_URL:-http://regional-routing-service-a:3000}"
       UPSTREAM_TIMEOUT_MS: "${ROUTING_UPSTREAM_TIMEOUT_MS:-2000}"
       MAX_RETRIES: "${ROUTING_MAX_RETRIES:-2}"
     depends_on:
-      regional-routing-service:
+      regional-routing-service-a:
         condition: service_healthy
     healthcheck:
       test:
