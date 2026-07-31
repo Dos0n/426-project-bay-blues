@@ -2427,6 +2427,7 @@ The integrity guard caught that the live root JSONL had advanced after the earli
 
 <!-- AI: End AI-assisted disclosure document. See ai/chats/austinf-sprint2/austinf-sprint2.jsonl. -->
 
+
 <!-- AI: This disclosure document was generated with AI assistance from the matching raw Codex transcript. -->
 
 # Sprint 3 Task 1 AI Disclosure
@@ -3549,6 +3550,18 @@ PR #11 is open. The AI-disclosure skill now requires two distinct artifacts for 
 
 ````text
 The first AI snapshot was taken before PR #11 existed, so the disclosure workflow is causing one refresh: I’m moving that uncommitted intermediate copy to temporary storage and re-running the mandated save helper against the live root session. Then I’ll mechanically generate the Sprint 3 Markdown transcript from only the real user prompts and assistant responses, excluding injected environment/instruction records.
+````
+
+### 66. Assistant response
+
+````text
+The disclosure now contains 65 verbatim user/assistant messages, starts with the real Sprint 3 request, excludes injected environment instructions, and the raw JSONL parses cleanly. I’m committing these three disclosure artifacts, opening the second PR as a stacked PR against the code branch, then I’ll do one final snapshot refresh so the PR-creation work itself is captured too.
+````
+
+### 67. Assistant response
+
+````text
+Both PRs are open (#11 code, #12 disclosure-only). I’m taking the final stable transcript snapshot now so PR #12 includes the creation of both PRs and the disclosure workflow itself. After regenerating, I’ll push one small refresh commit and verify that PR #12 still contains exactly three files relative to its code-branch base.
 ````
 
 <!-- AI: End AI-assisted disclosure document. See ai/chats/2026-07-31-084041-sprint-3-task-1-caddy.jsonl. -->
