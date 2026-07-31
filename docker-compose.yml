@@ -73,6 +73,19 @@ services:
       retries: 5
       start_period: 5s
 
+  # AI: Sprint 3 Caddy load balances the routing replicas while keeping them internal to the Compose network.
+  regional-routing-load-balancer:
+    image: caddy:2-alpine
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      regional-routing-service-a:
+        condition: service_started
+      regional-routing-service-b:
+        condition: service_started
+      regional-routing-service-c:
+        condition: service_started
+
   regional-routing-ambassador:
     build:
       context: ./regional-routing-ambassador
@@ -80,13 +93,13 @@ services:
       - "${ROUTING_AMBASSADOR_PORT:-3002}:3000"
     environment:
       PORT: "3000"
-      # AI: Sprint 3 replica A preserves a working ambassador path until Caddy becomes the shared upstream.
-      UPSTREAM_URL: "${ROUTING_UPSTREAM_URL:-http://regional-routing-service-a:3000}"
+      # AI: Sprint 3 keeps one stable ambassador upstream while Caddy owns routing-replica selection.
+      UPSTREAM_URL: "${ROUTING_UPSTREAM_URL:-http://regional-routing-load-balancer:3000}"
       UPSTREAM_TIMEOUT_MS: "${ROUTING_UPSTREAM_TIMEOUT_MS:-2000}"
       MAX_RETRIES: "${ROUTING_MAX_RETRIES:-2}"
     depends_on:
-      regional-routing-service-a:
-        condition: service_healthy
+      regional-routing-load-balancer:
+        condition: service_started
     healthcheck:
       test:
         - CMD
