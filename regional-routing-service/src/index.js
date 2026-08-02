@@ -34,6 +34,11 @@ const routingLatencyMs = readBoundedInteger(
   0,
   10000,
 );
+// AI: Sprint 3 replica identity makes Caddy traffic distribution observable while preserving a useful local fallback.
+const replicaId =
+  process.env.REPLICA_ID ??
+  process.env.HOSTNAME ??
+  "regional-routing-local";
 // AI: Austin's review fix bounds routing to the simulated local service area. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
 const maximumRoutingDistanceMeters = 10000;
 
@@ -130,16 +135,19 @@ const respondAfterLatency = (operation, next) => {
 
 app.disable("x-powered-by");
 
+// AI: Sprint 3 success responses expose the serving replica without changing existing response fields or routing behavior.
 app.get("/health", (_request, response) => {
   response.status(200).json({
     status: "ok",
     service: "regional-routing-service",
+    servedBy: replicaId,
   });
 });
 
 app.get("/regions", (_request, response, next) => {
   respondAfterLatency(() => {
     response.status(200).json({
+      servedBy: replicaId,
       regions: regions.map((region) => ({
         regionId: region.regionId,
         regionName: region.regionName,
@@ -218,6 +226,7 @@ app.get("/route", (request, response, next) => {
     }
 
     response.status(200).json({
+      servedBy: replicaId,
       regionId: region.regionId,
       regionName: region.regionName,
       location: {
@@ -264,12 +273,15 @@ app.use((error, _request, response, next) => {
   });
 });
 
+// AI: Sprint 3 startup logging identifies each independently running routing replica.
 app.listen(port, () => {
   console.log(
     JSON.stringify({
       level: "info",
+      service: "regional-routing-service",
       message: "Regional routing service started",
       port,
+      replicaId,
     }),
   );
 });
