@@ -1,3 +1,5 @@
+<!-- AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/. -->
+
 # Sprint 3 Load Test Results — regional-routing-service
 
 ## Setup
@@ -52,3 +54,5 @@ Both regional-routing-service SLOs were met under this load profile.
 2. Lower or parameterize `ROUTING_LATENCY_MS` if we want the test to measure infrastructure overhead instead of the simulated service delay (the SLO’s 400 ms budget is mostly spent on that delay today).
 3. Add failure scenarios (stop one replica mid-run) to validate Caddy health checks and ambassador retries under partial outage, not only the happy path.
 4. Optionally track `servedBy` distribution to confirm round-robin balance across `regional-routing-service-a/b/c`.
+
+<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/. -->

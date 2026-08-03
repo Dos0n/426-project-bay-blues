@@ -1,3 +1,4 @@
+// AI: This file was generated or substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/.
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
@@ -65,3 +66,4 @@ export default function () {
 
   sleep(1);
 }
+// AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/.
