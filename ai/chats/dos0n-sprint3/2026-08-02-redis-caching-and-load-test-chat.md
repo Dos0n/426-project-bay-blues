@@ -110,6 +110,75 @@ other two teammates' sessions). Followed that existing personal convention:
 wrote this file, and did not add a new section to the canonical
 `AI-DISCLOSURE.md`.
 
+## Turn 7 — User
+
+Asked whether to merge the teammate's scaffolding PR (#10) first before
+implementing changes, to preserve their authored commit in the individual
+grading history rather than overwriting it.
+
+## Turn 7 — Assistant
+
+Recommended merging PR #10 first, then rebasing this branch on top so the
+teammate's commit stays in history underneath the rewritten load test file.
+User merged PR #10; the assistant fetched `origin/main`, rebased
+`sprint-3-task-2-redis-caching-and-load-test` onto it, resolved the one
+add/add conflict in `load-tests/sprint-3-load.js` by keeping the full
+rewritten script over the 1-VU/1s scaffold, and force-pushed the rebased
+branch.
+
+## Turn 8 — User
+
+Asked the assistant to open a PR.
+
+## Turn 8 — Assistant
+
+`gh` was not available in this environment, so the assistant pushed the
+branch and gave the student the GitHub compare-branch URL plus a suggested
+PR title/description, rather than fabricating a PR-open action it couldn't
+perform.
+
+## Turn 9 — User
+
+Asked whether the work as it stood actually satisfied the full Sprint 3
+rubric, pasting the point breakdown.
+
+## Turn 9 — Assistant
+
+Checked `docs/SERVICES.md` for service ownership and found the student is
+listed as owner of `incident-ambassador` and `responder-dispatch-service`,
+not `regional-routing-service` (owned by a teammate). Flagged that two
+individual-rubric criteria were not yet satisfied: the results report's SLO
+comparison only covered `regional-routing-service`'s SLO (not one of the
+student's own services), and the k6 script never exercised the student's own
+service, so there was no evidence it "functions correctly ... when exercised
+by the k6 load test." Reported team criteria as fully satisfied but
+individual criteria at ~20/40 (only the authored-commits criterion clearly
+met), and offered to fix both gaps.
+
+## Turn 10 — User
+
+Confirmed: fix the gaps.
+
+## Turn 10 — Assistant
+
+Read `responder-dispatch-service/src/index.js` and its `response-teams.json`
+fixture to find a safe way to exercise it under load (`POST /dispatches`
+with a random UUID `incidentId` and a real `teamId` from the roster — the
+service validates `teamId` against its known roster but does not require
+`incidentId` to reference a real incident). Updated
+`load-tests/sprint-3-load.js` to send a `POST /dispatches` request directly
+to `responder-dispatch-service` (it has no ambassador) alongside the existing
+routing request each iteration, using separate k6 `Trend` metrics
+(`routing_route_duration`, `dispatch_create_duration`) so each service's
+latency could be read out independently rather than blended into one
+`http_req_duration`. Re-ran the full stack and the load test twice via
+Docker to confirm stable numbers, then rewrote `results/sprint-3-load-test.md`
+to report both endpoints' p50/p95/p99/request-rate/error-rate and add a
+`responder-dispatch-service` SLO comparison section (500 ms p95 latency /
+99% success / exactly-once dispatch), noting the exactly-once invariant
+itself is not exercised by this load test and would need a dedicated
+duplicate-request test in Sprint 5.
+
 ---
 
 ## AI-assisted files (this session, `sprint-3-task-2-redis-caching-and-load-test` branch)
