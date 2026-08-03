@@ -1,6 +1,7 @@
 // AI: This file was generated or substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/.
 import { readFileSync } from "node:fs";
 import express from "express";
+import { createClient } from "redis";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   const rawValue = process.env[name];
@@ -41,6 +42,33 @@ const replicaId =
   "regional-routing-local";
 // AI: Austin's review fix bounds routing to the simulated local service area. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
 const maximumRoutingDistanceMeters = 10000;
+
+// AI: Sprint 3 Redis cache shared by every routing replica, keyed by rounded location so a real
+// crowd clustered at one venue (e.g. a Mullins Center event) produces cache hits across replicas.
+const redisUrl = process.env.REDIS_URL ?? "redis://redis:6379";
+const routeCacheTtlSeconds = readBoundedInteger(
+  "ROUTE_CACHE_TTL_SECONDS",
+  30,
+  1,
+  3600,
+);
+const cacheCoordinatePrecision = 2;
+
+const redisClient = createClient({ url: redisUrl });
+redisClient.on("error", (error) => {
+  console.error(
+    JSON.stringify({
+      level: "error",
+      message: "Redis client error",
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
+});
+
+const buildRouteCacheKey = (latitude, longitude, emergencyType) =>
+  `route:${latitude.toFixed(cacheCoordinatePrecision)}:${longitude.toFixed(
+    cacheCoordinatePrecision,
+  )}:${emergencyType}`;
 
 const emergencyTypes = new Set([
   "medical",
@@ -181,65 +209,132 @@ app.get("/route", (request, response, next) => {
   const emergencyType =
     rawEmergencyType === undefined ? "unknown" : String(rawEmergencyType);
 
-  respondAfterLatency(() => {
-    const validationErrors = [];
+  const validationErrors = [];
 
-    if (latitudeResult.error !== undefined) {
-      validationErrors.push(latitudeResult.error);
-    }
+  if (latitudeResult.error !== undefined) {
+    validationErrors.push(latitudeResult.error);
+  }
 
-    if (longitudeResult.error !== undefined) {
-      validationErrors.push(longitudeResult.error);
-    }
+  if (longitudeResult.error !== undefined) {
+    validationErrors.push(longitudeResult.error);
+  }
 
-    if (!emergencyTypes.has(emergencyType)) {
-      validationErrors.push("emergencyType is not a supported value");
-    }
+  if (!emergencyTypes.has(emergencyType)) {
+    validationErrors.push("emergencyType is not a supported value");
+  }
 
-    if (validationErrors.length > 0) {
-      response.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Route request is invalid",
-          details: validationErrors,
-        },
-      });
-      return;
-    }
+  if (validationErrors.length > 0) {
+    response.status(400).json({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Route request is invalid",
+        details: validationErrors,
+      },
+    });
+    return;
+  }
 
+  const cacheKey = buildRouteCacheKey(
+    latitudeResult.value,
+    longitudeResult.value,
+    emergencyType,
+  );
+
+  const buildRouteResult = () => {
     const { region, distanceMeters } = findNearestRegion(
       latitudeResult.value,
       longitudeResult.value,
     );
 
-    if (
-      region === null ||
-      distanceMeters > maximumRoutingDistanceMeters
-    ) {
-      response.status(404).json({
-        error: {
-          code: "REGION_NOT_FOUND",
-          message: "No region could be matched for the supplied coordinates",
-        },
-      });
-      return;
+    if (region === null || distanceMeters > maximumRoutingDistanceMeters) {
+      return { notFound: true };
     }
 
-    response.status(200).json({
-      servedBy: replicaId,
-      regionId: region.regionId,
-      regionName: region.regionName,
-      location: {
-        latitude: latitudeResult.value,
-        longitude: longitudeResult.value,
+    return {
+      notFound: false,
+      body: {
+        regionId: region.regionId,
+        regionName: region.regionName,
+        location: {
+          latitude: latitudeResult.value,
+          longitude: longitudeResult.value,
+        },
+        emergencyType,
+        responseGroup: selectResponseGroup(region, emergencyType),
+        matchedBy: "coordinates",
+        distanceMeters: Math.round(distanceMeters),
       },
-      emergencyType,
-      responseGroup: selectResponseGroup(region, emergencyType),
-      matchedBy: "coordinates",
-      distanceMeters: Math.round(distanceMeters),
-      routedAt: new Date().toISOString(),
-    });
-  }, next);
+    };
+  };
+
+  const logCacheEvent = (cacheStatus) => {
+    console.log(
+      JSON.stringify({
+        level: "info",
+        message: "Route cache lookup",
+        servedBy: replicaId,
+        cacheKey,
+        cacheStatus,
+      }),
+    );
+  };
+
+  // AI: Sprint 3 cache hits skip respondAfterLatency entirely so the endpoint demonstrably
+  // answers faster on a repeated location than it does on first access.
+  redisClient
+    .get(cacheKey)
+    .then((cachedValue) => {
+      if (cachedValue !== null) {
+        logCacheEvent("HIT");
+        const cachedBody = JSON.parse(cachedValue);
+        response.status(200).json({
+          servedBy: replicaId,
+          ...cachedBody,
+          routedAt: new Date().toISOString(),
+          cache: "HIT",
+        });
+        return;
+      }
+
+      logCacheEvent("MISS");
+
+      respondAfterLatency(() => {
+        const result = buildRouteResult();
+
+        if (result.notFound) {
+          response.status(404).json({
+            error: {
+              code: "REGION_NOT_FOUND",
+              message:
+                "No region could be matched for the supplied coordinates",
+            },
+          });
+          return;
+        }
+
+        redisClient
+          .set(cacheKey, JSON.stringify(result.body), {
+            EX: routeCacheTtlSeconds,
+          })
+          .catch((error) => {
+            console.error(
+              JSON.stringify({
+                level: "error",
+                message: "Failed to store route result in cache",
+                error: error instanceof Error ? error.message : String(error),
+              }),
+            );
+          });
+
+        response.status(200).json({
+          servedBy: replicaId,
+          ...result.body,
+          routedAt: new Date().toISOString(),
+          cache: "MISS",
+        });
+      }, next);
+    })
+    .catch(next);
 });
 
 app.use((_request, response) => {
@@ -274,6 +369,8 @@ app.use((error, _request, response, next) => {
 });
 
 // AI: Sprint 3 startup logging identifies each independently running routing replica.
+await redisClient.connect();
+
 app.listen(port, () => {
   console.log(
     JSON.stringify({
@@ -282,6 +379,7 @@ app.listen(port, () => {
       message: "Regional routing service started",
       port,
       replicaId,
+      redisUrl,
     }),
   );
 });
