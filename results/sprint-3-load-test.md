@@ -1,58 +1,91 @@
-<!-- AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/. -->
+<!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/. -->
 
-# Sprint 3 Load Test Results — regional-routing-service
+# Sprint 3 Load Test Results — routing and incident services
 
 ## Setup
 
-| Item | Value |
-|------|--------|
-| Script | `load-tests/sprint-3-load.js` |
-| Target | `GET http://localhost:3002/route` (routing ambassador → Caddy → 3 routing replicas) |
-| Load | 10 VUs, 30s duration, 1s sleep between iterations |
-| Inputs | Rotating campus region centers + emergency types from `regional-routing-service/data/regions.json` |
-| Tool | k6 v2.1.0 |
-| Date | 2026-08-03 |
+The test ran from the Gantry devcontainer attached directly to the Compose
+network. Each iteration exercised two public service paths:
 
-Default compose settings: `ROUTING_LATENCY_MS=200` on each replica; ambassador retries on upstream 5xx/timeout.
+1. `GET /route` through `regional-routing-ambassador`, Caddy, and the three
+   `regional-routing-service` replicas.
+2. `POST /incidents` through `incident-ambassador` to Austin's owned
+   `incident-service`.
+
+```bash
+docker compose up --build -d
+docker network connect <compose-network> <gantry-container>
+BASE_URL=http://regional-routing-ambassador:3000 \
+INCIDENT_BASE_URL=http://incident-ambassador:3000 \
+k6 run --summary-export=results/k6-summary.json \
+  load-tests/sprint-3-load.js
+```
+
+The script used 10 virtual users for 30 seconds with a one-second sleep after
+each paired routing/incident iteration. It completed 200 iterations and 400
+HTTP requests. Every request used synthetic fixture-compatible coordinates and
+emergency types; every incident was created only in the service's in-memory
+runtime state.
 
 ## Measured results
 
-| Metric | Value |
-|--------|--------|
-| Total requests | 250 |
-| Request rate | **8.25 req/s** |
-| Error rate (`http_req_failed`) | **0.00%** (0 / 250) |
-| Checks passed | 100% (750 / 750) — status 200, `regionId`, `responseGroup.id` |
-| Latency p50 (median) | **210.44 ms** |
-| Latency p95 | **217.84 ms** |
-| Latency p99 | **220.57 ms** |
-| Latency avg / min / max | 210.79 ms / 202.80 ms / 221.31 ms |
+The per-service values come from custom k6 counters, Rates, and Trends so the
+two different SLOs are not obscured by the combined HTTP distribution.
 
-k6 thresholds configured in the script both passed:
+| Metric | `regional-routing-service` (`GET /route`) | `incident-service` (`POST /incidents`) |
+|---|---:|---:|
+| Requests | 200 | 200 |
+| Request rate | 6.53 req/s | 6.53 req/s |
+| Error rate | 0.00% | 0.00% |
+| p50 latency | 126.30 ms | 299.90 ms |
+| p95 latency | 391.25 ms | 623.12 ms |
+| p99 latency | 533.15 ms | 904.13 ms |
 
-- `http_req_duration` `p(95)<400` → p(95) = 217.84 ms ✓
-- `http_req_failed` `rate<0.01` → rate = 0.00% ✓
+Combined results were 400 requests at 13.07 req/s with a 0.00% HTTP error
+rate. All 1,200 response checks passed: routing returned `200`, a `regionId`,
+and a response group; incident creation returned `201`, a non-empty
+`incidentId`, and the initial `reported` status.
 
-## Comparison to `docs/SLO.md` (regional-routing-service)
+## Comparison against `docs/SLO.md`
 
-| SLO | Target | Measured | Result |
-|-----|--------|----------|--------|
-| **Latency** | `GET /route` p95 ≤ **400 ms** | p95 = **217.84 ms** (p99 = 220.57 ms) | **Hit** |
-| **Reliability** | Success ≥ **99%** (error rate &lt; 1%) | Error rate = **0.00%** | **Hit** |
+### `regional-routing-service`
 
-Both regional-routing-service SLOs were met under this load profile.
+- **Latency SLO met:** p95 was 391.25 ms against the 400 ms target.
+- **Reliability SLO met:** all 200 routing requests succeeded, exceeding the
+  99% target.
+
+<!-- AI: Austin's individual Sprint 3 analysis compares the measured incident path with his owned service's SLOs. -->
+### `incident-service`
+
+- **Latency SLO not met:** p95 was 623.12 ms against the 250 ms target. The
+  minimum observed end-to-end time was already 254.34 ms because the request
+  includes the service's simulated 200 ms processing delay plus the
+  ambassador's simulated 50 ms inspection delay and network overhead.
+- **Reliability SLO met:** all 200 incident writes returned valid `201`
+  responses, exceeding the 99% target. The incident checks passed 600/600.
+
+The k6 process completed every iteration, but it reported a failed
+`incident_create_duration` threshold because the latency SLO was missed. That
+threshold failure is retained in `results/k6-run.log` rather than hidden.
 
 ## Interpretation
 
-**What the numbers mean.** End-to-end latency sits in a tight band just above 200 ms (p50 ≈ 210 ms, p99 ≈ 221 ms). That matches the intentional simulated processing delay (`ROUTING_LATENCY_MS=200`) plus a small amount of ambassador + Caddy + network overhead (~10–20 ms). Responses stayed successful for every iteration: load balancing across three replicas did not introduce failures at 10 concurrent clients.
+The updated run proves that Austin's service functions correctly in the full
+system under concurrent load: all incident writes were accepted through the
+ambassador and returned valid records. Reliability is currently stronger than
+latency.
 
-**Bottleneck.** At this intensity the bottleneck is **not** replica CPU or Caddy capacity — it is the **fixed artificial latency** in the routing service. Throughput is further capped by the script’s `sleep(1)`: each VU does roughly one request per ~1.21 s, so 10 VUs ≈ 8.3 req/s by design. We are exercising the load-balanced path correctly, but we are not near a saturation or failure cliff.
+The incident path's main bottleneck is its fixed sequential latency budget.
+The configured 200 ms service delay and 50 ms ambassador delay consume the
+entire 250 ms p95 target before queueing or network variability is considered.
+Under 10 concurrent users, the tail grew to 623 ms at p95 and 904 ms at p99.
 
-**What we would change later.**
-
-1. Raise VUs and remove or reduce think-time to push higher RPS and see when p95 climbs or replicas queue.
-2. Lower or parameterize `ROUTING_LATENCY_MS` if we want the test to measure infrastructure overhead instead of the simulated service delay (the SLO’s 400 ms budget is mostly spent on that delay today).
-3. Add failure scenarios (stop one replica mid-run) to validate Caddy health checks and ambassador retries under partial outage, not only the happy path.
-4. Optionally track `servedBy` distribution to confirm round-robin balance across `regional-routing-service-a/b/c`.
+The next change should either reduce those simulated delays or define the
+250 ms SLO at the direct service boundary and add a separate end-to-end SLO for
+the ambassador path. If higher concurrency still raises the tail after that,
+the service will need a shared incident-state design before safe replication;
+replicating its current in-memory mutable state would create inconsistent
+reads. The routing path remained within its p95 SLO, while its p99 shows that
+cold-cache and contention cases still deserve future stress testing.
 
 <!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/. -->
