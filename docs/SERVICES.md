@@ -3,8 +3,9 @@
 
 - `emergency-gateway`: Receives mobile emergency requests, validates their basic shape, preserves an idempotency key for safe retries, and forwards accepted requests into the incident workflow.
 - `incident-service` (Owner: `@austinfairbanks`): Creates and tracks simulated emergency incidents, assigns each request an incident ID and severity level, and maintains the authoritative incident state.
-- `regional-routing-service` (Owner: `@ShriRadhakrishnan1`): Three identical, stateless replicas map an incident location and emergency type to the nearest campus/venue region and an eligible local response group via `GET /route` (query params: `latitude`, `longitude`, optional `emergencyType`). Each response exposes `servedBy` so replica selection is observable.
+- `regional-routing-service` (Owner: `@ShriRadhakrishnan1`): Three identical, stateless replicas map an incident location and emergency type to the nearest campus/venue region and an eligible local response group via `GET /route` (query params: `latitude`, `longitude`, optional `emergencyType`). Each response exposes `servedBy` so replica selection is observable. `GET /route` is Redis-cached: the cache key normalizes `latitude`/`longitude` to six decimal places and combines it with `emergencyType`, so an exact repeated lookup (e.g. many requests during an event at the Mullins Center) becomes a cache hit shared across all three replicas, without merging distinct nearby venues into the same key. Each response's `cache` field reports `"HIT"` or `"MISS"`, and every replica logs the cache key and outcome for each request. If Redis is unreachable, a lookup falls back to computing the route directly rather than failing the request.
 - `regional-routing-load-balancer`: Caddy load balancer that checks each routing replica's `/health` endpoint and distributes requests across healthy replicas using round-robin selection.
+- `redis`: Shared Redis cache used by all three `regional-routing-service` replicas for `GET /route` results, keyed by rounded location and emergency type with a 30-second TTL (`ROUTE_CACHE_TTL_SECONDS`).
 - `regional-routing-ambassador` (Owner: `@ShriRadhakrishnan1`): Ambassador proxy in front of the routing load balancer; forwards lookups, applies timeout/retry under load, and logs each upstream attempt.
 - `incident-ambassador` (Owner: `@Dos0n`): Ambassador proxy in front of `incident-service`; forwards `GET` and `POST` requests, retries safe (`GET`/`HEAD`) requests on timeout or 5xx, never retries `POST /incidents` to avoid duplicate incident creation, applies a simulated request-inspection delay via `setTimeout` before replying, and logs each upstream attempt.
 - `responder-dispatch-service` (Owner: `@Dos0n`): Simulates notifying and assigning the appropriate security, medical, police, or crisis-response team via `POST /dispatches` (body: `incidentId`, `teamId`), tracks dispatch status through `GET /dispatches/:dispatchId` and `PATCH /dispatches/:dispatchId/status`, and lists the response-team roster via `GET /teams`.
@@ -23,6 +24,7 @@ flowchart LR
         routingA[regional-routing-service-a<br/>Internal port 3000<br/>Replica A]
         routingB[regional-routing-service-b<br/>Internal port 3000<br/>Replica B]
         routingC[regional-routing-service-c<br/>Internal port 3000<br/>Replica C]
+        redis[(redis<br/>Internal port 6379<br/>Shared /route cache, 30s TTL)]
         dispatch[responder-dispatch-service<br/>Host port 3004<br/>Assign and track responder teams]
     end
 
@@ -33,6 +35,9 @@ flowchart LR
     routingLoadBalancer -->|Healthy upstream| routingA
     routingLoadBalancer -->|Healthy upstream| routingB
     routingLoadBalancer -->|Healthy upstream| routingC
+    routingA -->|Cache GET/SET on /route| redis
+    routingB -->|Cache GET/SET on /route| redis
+    routingC -->|Cache GET/SET on /route| redis
     client -->|POST /dispatches<br/>GET /dispatches/:dispatchId<br/>GET /teams| dispatch
 ```
 
@@ -52,7 +57,7 @@ request depends on mutable state held by a particular replica. Caddy can
 therefore send a request to any healthy replica and remove a failed replica
 without changing routing results.
 
-## Sprint 3 Routing Replication Verification
+## Sprint 3 Routing Replication and Caddy Verification
 
 Run these commands from the Gantry devcontainer. Start the complete system and
 validate Caddy's loaded configuration:
@@ -119,6 +124,69 @@ every service with a configured health check reported healthy. Caddy reported
 - Invalid routing input returned `400`; out-of-area coordinates returned `404`.
 - The incident ambassador and responder dispatch health endpoints both
   returned `200` with `status: "ok"`.
+
+## Sprint 3 Redis Caching Verification
+
+With the system running, request the same location twice through the public
+routing ambassador. The first request is a cache miss and pays the simulated
+`ROUTING_LATENCY_MS` delay; the second is a cache hit and returns almost
+immediately, from whichever replica Caddy happens to pick next:
+
+```bash
+curl -s -w '\n%{time_total}s\n' \
+  'http://localhost:3002/route?latitude=42.3800&longitude=-72.5200&emergencyType=fire'
+curl -s -w '\n%{time_total}s\n' \
+  'http://localhost:3002/route?latitude=42.3800&longitude=-72.5200&emergencyType=fire'
+```
+
+Each response's `cache` field reports `"MISS"` on the first call and `"HIT"`
+on the second, even though `servedBy` may name a different replica, confirming
+the cache is shared through Redis rather than held per-replica. Every
+replica's logs record the cache key and outcome for each request:
+
+```bash
+docker compose logs regional-routing-service-a regional-routing-service-b \
+  regional-routing-service-c --no-log-prefix | grep cacheStatus
+```
+
+### Recorded Validation: August 2, 2026
+
+- A first request to a fresh coordinate pair returned `"cache":"MISS"` and
+  took ~297 ms (the simulated 200 ms compute delay plus overhead); a second
+  request to the same coordinates returned `"cache":"HIT"` in ~63 ms.
+- The hit was served by a different replica than the miss, confirming the
+  cache is shared across all three replicas through Redis rather than being
+  local to one instance.
+- Replica logs recorded a `"cacheStatus"` of `MISS` then `HIT` for the same
+  cache key, matching the observed response behavior.
+- A companion Sprint 3 k6 run generated a mixed workload of repeated and
+  dispersed coordinates and observed roughly a 90%+ cache hit rate across the
+  three replicas' logs, avoiding both the 0% and 100% hit-rate extremes.
+
+To verify the cache degrades gracefully instead of failing requests, stop
+Redis after warming a cache entry and request the same location again:
+
+```bash
+curl -s 'http://localhost:3002/route?latitude=42.3868&longitude=-72.5301&emergencyType=medical'
+docker compose stop redis
+curl -s -w '\nHTTP_STATUS:%{http_code}\n' \
+  'http://localhost:3002/route?latitude=42.3912&longitude=-72.5267&emergencyType=fire'
+docker compose start redis
+```
+
+The request made while Redis is down should still return `200` with a
+correctly computed route (`"cache":"MISS"`), not a 5xx. Replica logs record a
+`"Redis cache read failed; falling back to direct route calculation"` message
+for that request.
+
+### Recorded Validation: August 3, 2026
+
+- With Redis stopped, a routing request still returned `200` with a correct,
+  freshly computed route in ~360 ms (the simulated compute delay plus the
+  now-immediate Redis rejection); replica logs recorded the fallback message
+  above instead of an unhandled error.
+- Restarting Redis restored caching immediately; a previously warmed cache
+  key returned `"cache":"HIT"` again on the next request.
 
 Any pull request that adds, removes, or renames a service or infrastructure
 container, or changes a connection between them, must update both the service

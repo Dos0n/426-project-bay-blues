@@ -1,6 +1,7 @@
 // AI: This file was generated or substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/.
 import { readFileSync } from "node:fs";
 import express from "express";
+import { createClient } from "redis";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   const rawValue = process.env[name];
@@ -41,6 +42,45 @@ const replicaId =
   "regional-routing-local";
 // AI: Austin's review fix bounds routing to the simulated local service area. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
 const maximumRoutingDistanceMeters = 10000;
+
+// AI: Sprint 3 Redis cache shared by every routing replica, keyed by rounded location so a real
+// crowd clustered at one venue (e.g. a Mullins Center event) produces cache hits across replicas.
+const redisUrl = process.env.REDIS_URL ?? "redis://redis:6379";
+const routeCacheTtlSeconds = readBoundedInteger(
+  "ROUTE_CACHE_TTL_SECONDS",
+  30,
+  1,
+  3600,
+);
+// AI: Austin's review fix — 2 decimal places (~1km) merged distinct nearby
+// venues (e.g. Central Transit and the Wellness Center) into the same cache
+// key, so a cached Central Transit route was served for Wellness Center
+// requests. 6 decimal places (~0.1m) still caches exact repeated lookups
+// (the common case for a crowd at one venue) without merging real, distinct
+// coordinates into the same key.
+const cacheCoordinatePrecision = 6;
+
+// AI: Austin's review fix — with the default offline queue, commands issued
+// while Redis is unreachable hang until reconnection instead of rejecting,
+// so the earlier try/catch fallback never actually ran; a request would just
+// sit until the ambassador's own upstream timeout fired. Disabling the
+// offline queue makes a command reject immediately when Redis is down, which
+// the route handler below already treats as a cache miss.
+const redisClient = createClient({ url: redisUrl, disableOfflineQueue: true });
+redisClient.on("error", (error) => {
+  console.error(
+    JSON.stringify({
+      level: "error",
+      message: "Redis client error",
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
+});
+
+const buildRouteCacheKey = (latitude, longitude, emergencyType) =>
+  `route:${latitude.toFixed(cacheCoordinatePrecision)}:${longitude.toFixed(
+    cacheCoordinatePrecision,
+  )}:${emergencyType}`;
 
 const emergencyTypes = new Set([
   "medical",
@@ -164,7 +204,7 @@ app.get("/regions", (_request, response, next) => {
   }, next);
 });
 
-app.get("/route", (request, response, next) => {
+app.get("/route", async (request, response, next) => {
   const latitudeResult = parseCoordinate(
     request.query.latitude,
     "latitude",
@@ -181,41 +221,113 @@ app.get("/route", (request, response, next) => {
   const emergencyType =
     rawEmergencyType === undefined ? "unknown" : String(rawEmergencyType);
 
-  respondAfterLatency(() => {
-    const validationErrors = [];
+  const validationErrors = [];
 
-    if (latitudeResult.error !== undefined) {
-      validationErrors.push(latitudeResult.error);
-    }
+  if (latitudeResult.error !== undefined) {
+    validationErrors.push(latitudeResult.error);
+  }
 
-    if (longitudeResult.error !== undefined) {
-      validationErrors.push(longitudeResult.error);
-    }
+  if (longitudeResult.error !== undefined) {
+    validationErrors.push(longitudeResult.error);
+  }
 
-    if (!emergencyTypes.has(emergencyType)) {
-      validationErrors.push("emergencyType is not a supported value");
-    }
+  if (!emergencyTypes.has(emergencyType)) {
+    validationErrors.push("emergencyType is not a supported value");
+  }
 
-    if (validationErrors.length > 0) {
-      response.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Route request is invalid",
-          details: validationErrors,
-        },
-      });
-      return;
-    }
+  if (validationErrors.length > 0) {
+    response.status(400).json({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Route request is invalid",
+        details: validationErrors,
+      },
+    });
+    return;
+  }
 
+  const cacheKey = buildRouteCacheKey(
+    latitudeResult.value,
+    longitudeResult.value,
+    emergencyType,
+  );
+
+  const buildRouteResult = () => {
     const { region, distanceMeters } = findNearestRegion(
       latitudeResult.value,
       longitudeResult.value,
     );
 
-    if (
-      region === null ||
-      distanceMeters > maximumRoutingDistanceMeters
-    ) {
+    if (region === null || distanceMeters > maximumRoutingDistanceMeters) {
+      return { notFound: true };
+    }
+
+    return {
+      notFound: false,
+      body: {
+        regionId: region.regionId,
+        regionName: region.regionName,
+        location: {
+          latitude: latitudeResult.value,
+          longitude: longitudeResult.value,
+        },
+        emergencyType,
+        responseGroup: selectResponseGroup(region, emergencyType),
+        matchedBy: "coordinates",
+        distanceMeters: Math.round(distanceMeters),
+      },
+    };
+  };
+
+  const logCacheEvent = (cacheStatus) => {
+    console.log(
+      JSON.stringify({
+        level: "info",
+        message: "Route cache lookup",
+        servedBy: replicaId,
+        cacheKey,
+        cacheStatus,
+      }),
+    );
+  };
+
+  // AI: Sprint 3 cache hits skip respondAfterLatency entirely so the endpoint demonstrably
+  // answers faster on a repeated location than it does on first access.
+  // AI: Austin's review fix — a Redis outage previously bubbled up to `next`
+  // and returned a 500/504, even though the replica can still compute the
+  // route itself. A failed cache read is now treated as a cache miss instead.
+  let cachedValue = null;
+
+  try {
+    cachedValue = await redisClient.get(cacheKey);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        message: "Redis cache read failed; falling back to direct route calculation",
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
+
+  if (cachedValue !== null) {
+    logCacheEvent("HIT");
+    const cachedBody = JSON.parse(cachedValue);
+    response.status(200).json({
+      servedBy: replicaId,
+      ...cachedBody,
+      routedAt: new Date().toISOString(),
+      cache: "HIT",
+    });
+    return;
+  }
+
+  logCacheEvent("MISS");
+
+  respondAfterLatency(() => {
+    const result = buildRouteResult();
+
+    if (result.notFound) {
       response.status(404).json({
         error: {
           code: "REGION_NOT_FOUND",
@@ -225,19 +337,25 @@ app.get("/route", (request, response, next) => {
       return;
     }
 
+    redisClient
+      .set(cacheKey, JSON.stringify(result.body), {
+        EX: routeCacheTtlSeconds,
+      })
+      .catch((error) => {
+        console.error(
+          JSON.stringify({
+            level: "error",
+            message: "Failed to store route result in cache",
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
+      });
+
     response.status(200).json({
       servedBy: replicaId,
-      regionId: region.regionId,
-      regionName: region.regionName,
-      location: {
-        latitude: latitudeResult.value,
-        longitude: longitudeResult.value,
-      },
-      emergencyType,
-      responseGroup: selectResponseGroup(region, emergencyType),
-      matchedBy: "coordinates",
-      distanceMeters: Math.round(distanceMeters),
+      ...result.body,
       routedAt: new Date().toISOString(),
+      cache: "MISS",
     });
   }, next);
 });
@@ -274,6 +392,8 @@ app.use((error, _request, response, next) => {
 });
 
 // AI: Sprint 3 startup logging identifies each independently running routing replica.
+await redisClient.connect();
+
 app.listen(port, () => {
   console.log(
     JSON.stringify({
@@ -282,6 +402,7 @@ app.listen(port, () => {
       message: "Regional routing service started",
       port,
       replicaId,
+      redisUrl,
     }),
   );
 });
