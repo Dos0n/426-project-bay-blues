@@ -1,4 +1,4 @@
-<!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/ for session logs. -->
+<!-- AI: This file was substantially modified with AI assistance. See ai/chats/ for disclosures and session logs. -->
 # Current Service List
 
 - `emergency-gateway`: Receives mobile emergency requests, validates their basic shape, preserves an idempotency key for safe retries, and forwards accepted requests into the incident workflow.
@@ -124,4 +124,4 @@ Any pull request that adds, removes, or renames a service or infrastructure
 container, or changes a connection between them, must update both the service
 list and the Mermaid diagram above. The repository pull-request template
 includes this as a required checklist item.
-<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/ for session logs. -->
+<!-- AI: End AI-assisted file. See ai/chats/ for disclosures and session logs. -->

@@ -1,4 +1,4 @@
-// AI: This file was generated or substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/.
+// AI: This file was generated or substantially modified with AI assistance. See ai/chats/sradhakrishnan/.
 import express from "express";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
@@ -220,4 +220,4 @@ app.listen(port, () => {
     }),
   );
 });
-// AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/.
+// AI: End AI-assisted file. See ai/chats/sradhakrishnan/.

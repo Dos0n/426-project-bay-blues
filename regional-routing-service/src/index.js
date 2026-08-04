@@ -1,4 +1,4 @@
-// AI: This file was generated or substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/.
+// AI: This file was generated or substantially modified with AI assistance. See ai/chats/sradhakrishnan/.
 import { readFileSync } from "node:fs";
 import express from "express";
 
@@ -39,7 +39,7 @@ const replicaId =
   process.env.REPLICA_ID ??
   process.env.HOSTNAME ??
   "regional-routing-local";
-// AI: Austin's review fix bounds routing to the simulated local service area. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
+// AI: Austin's review fix bounds routing to the simulated local service area. See ai/chats/austinf-sprint2/AI-DISCLOSURE.md.
 const maximumRoutingDistanceMeters = 10000;
 
 const emergencyTypes = new Set([
@@ -70,7 +70,7 @@ const haversineDistanceMeters = (latitude, longitude, center) => {
 };
 
 const parseCoordinate = (rawValue, fieldName, minimum, maximum) => {
-  // AI: Austin's review fix rejects blank query values before Number converts them to zero. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
+  // AI: Austin's review fix rejects blank query values before Number converts them to zero. See ai/chats/austinf-sprint2/AI-DISCLOSURE.md.
   if (
     rawValue === undefined ||
     (typeof rawValue === "string" && rawValue.trim().length === 0)
@@ -285,4 +285,4 @@ app.listen(port, () => {
     }),
   );
 });
-// AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/.
+// AI: End AI-assisted file. See ai/chats/sradhakrishnan/.

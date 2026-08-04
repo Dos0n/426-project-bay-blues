@@ -1,4 +1,4 @@
-<!-- AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl. -->
+<!-- AI: This file was generated with AI assistance. See ai/chats/austinf-sprint2/AI-DISCLOSURE.md. -->
 
 # Incident Service API Contract
 
@@ -255,4 +255,4 @@ returned to the client.
 These capabilities can be added in later sprints without changing the basic
 incident representation or the three endpoint paths defined here.
 
-<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl. -->
+<!-- AI: End AI-assisted file. See ai/chats/austinf-sprint2/AI-DISCLOSURE.md. -->

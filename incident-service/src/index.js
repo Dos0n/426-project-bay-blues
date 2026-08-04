@@ -1,4 +1,4 @@
-// AI: This file was generated or substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
+// AI: This file was generated or substantially modified with AI assistance. See ai/chats/austinf-sprint2/AI-DISCLOSURE.md.
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import express from "express";
@@ -384,4 +384,4 @@ app.listen(port, () => {
     }),
   );
 });
-// AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
+// AI: End AI-assisted file. See ai/chats/austinf-sprint2/AI-DISCLOSURE.md.

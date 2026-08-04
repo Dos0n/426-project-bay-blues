@@ -1,4 +1,4 @@
-# AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/ for session logs.
+# AI: This file was generated with AI assistance. See ai/chats/ for disclosures and session logs.
 :3000 {
 	# AI: Sprint 3 distributes routing requests across three replicas and removes unhealthy instances from rotation.
 	reverse_proxy regional-routing-service-a:3000 regional-routing-service-b:3000 regional-routing-service-c:3000 {
@@ -8,4 +8,4 @@
 		health_timeout 1s
 	}
 }
-# AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/ for session logs.
+# AI: End AI-assisted file. See ai/chats/ for disclosures and session logs.

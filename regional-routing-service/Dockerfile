@@ -1,4 +1,4 @@
-# AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/.
+# AI: This file was generated with AI assistance. See ai/chats/sradhakrishnan/.
 FROM node:24
 
 WORKDIR /usr/src/app

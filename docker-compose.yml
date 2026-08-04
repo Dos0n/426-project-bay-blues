@@ -1,5 +1,5 @@
 # AI: This file was generated or substantially modified with AI assistance.
-# See AI-DISCLOSURE.md and ai/chats/ for session logs.
+# See ai/chats/ for disclosures and session logs.
 services:
   incident-service:
     build:
