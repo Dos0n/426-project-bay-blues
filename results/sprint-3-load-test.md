@@ -57,17 +57,27 @@ the requested response-team ID.
 - **Reliability SLO met:** all 160 routing requests returned valid responses,
   exceeding the 99% target.
 
+The 163.56 ms median remained below the target because repeated lookups could
+use Redis, but the 792.05 ms p95 and 1,085.09 ms p99 show that cache misses and
+shared-container contention dominated the tail during the three-service run.
+This is a latency-capacity problem rather than a correctness failure because
+every routed response remained valid.
+
 ### `incident-service`
 
 - **Latency SLO not met:** p95 was 997.30 ms against the 250 ms target.
 - **Reliability SLO met:** all 160 incident writes returned valid `201`
   responses, exceeding the 99% target.
 
+The 254.22 ms minimum already exceeded the latency target because the path
+combines the service's configured 200 ms processing delay with the
+ambassador's 50 ms inspection delay before network overhead. The 997.30 ms p95
+shows that concurrent container contention added a substantial tail beyond
+that fixed latency floor, while the zero-error result confirms the writes
+remained functionally correct.
+
 <!-- AI: Bruce's individual Sprint 3 analysis compares the measured dispatch path with his owned service's SLOs. -->
 ### `responder-dispatch-service`
-
-The SLO document calls this operation `POST /dispatch`; the implemented and
-tested service route is `POST /dispatches`.
 
 - **Latency SLO met:** p95 was 486.17 ms against the 500 ms target. This passed
   with only 13.83 ms of margin, while p99 reached 1,364.86 ms, so the result
