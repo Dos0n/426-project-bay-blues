@@ -193,6 +193,44 @@ load-test work from this PR to match. The assistant pulled that commit
 touches `load-tests/` or `results/` at all — this PR is now scoped to Redis
 caching only, and the k6 script and load test report live in PR #14 instead.
 
+## Turn 12 — User
+
+Asked the assistant to address the rest of the review comments on PR #13.
+
+## Turn 12 — Assistant
+
+Pulled PR #13's review comments via the GitHub REST API (no `gh` CLI
+available in this environment). Two were already resolved (removing the
+duplicate load-test files, Turn 11); three were not:
+
+1. `@austinfairbanks` found that rounding the cache key's coordinates to two
+   decimal places merged distinct nearby venues into the same key — a
+   request for the Wellness Center (`42.3827,-72.5321`) was served Central
+   Transit's (`42.3845,-72.5283`) cached route. Fixed by widening the cache
+   key's coordinate precision from 2 to 6 decimal places, which still caches
+   exact repeated lookups (the actual demo/load-test pattern) without
+   merging distinct coordinates.
+2. `@austinfairbanks` also noted a Redis outage returned a 500/504 instead
+   of falling back to computing the route directly. The assistant found this
+   had two layers: the route handler forwarded cache-read errors to the
+   Express error handler instead of treating them as a miss, **and**
+   node-redis's default offline command queue meant a command issued while
+   disconnected just hung (rather than rejecting) until reconnection, so the
+   ambassador's own upstream timeout fired first regardless of the route
+   handler's error handling. Fixed both: the handler now awaits the cache
+   read in a try/catch and treats a failure as a miss, and the client is
+   created with `disableOfflineQueue: true` so a command rejects immediately
+   when Redis is unreachable. Verified live by stopping the `redis` container
+   mid-session and confirming a routing request still returned `200` with a
+   freshly computed route (~360 ms) instead of a 504, then restarting Redis
+   and confirming a previously warmed key still returned `"cache":"HIT"`.
+3. Added `ROUTE_CACHE_TTL_SECONDS=30` to `.env.example` per the third
+   comment.
+
+Updated `docs/SERVICES.md`'s service-list entry and caching verification
+section to match the new precision and outage-fallback behavior, including a
+new recorded validation entry for the Redis-outage test.
+
 ---
 
 ## AI-assisted files (this session, `sprint-3-task-2-redis-caching-and-load-test` branch)
