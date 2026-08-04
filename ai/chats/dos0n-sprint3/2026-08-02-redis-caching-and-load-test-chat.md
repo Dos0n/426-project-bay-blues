@@ -179,6 +179,20 @@ to report both endpoints' p50/p95/p99/request-rate/error-rate and add a
 itself is not exercised by this load test and would need a dedicated
 duplicate-request test in Sprint 5.
 
+## Turn 11 — Teammate + User
+
+A teammate (`@ShriRadhakrishnan1`) had independently started the k6 load
+test work on their own branch (later PR #14,
+`sradhakrishnan/sprint-3-load-test-script`) and pushed a commit directly to
+this branch (`Remove duplicate k6 work from Redis PR`, `3406289`) reverting
+`load-tests/sprint-3-load.js` back to the untouched scaffold from PR #10 and
+deleting `results/sprint-3-load-test.md`, to avoid the two PRs duplicating
+the same deliverable. The student asked the assistant to remove the
+load-test work from this PR to match. The assistant pulled that commit
+(fast-forward) and confirmed this branch's diff against `main` no longer
+touches `load-tests/` or `results/` at all — this PR is now scoped to Redis
+caching only, and the k6 script and load test report live in PR #14 instead.
+
 ---
 
 ## AI-assisted files (this session, `sprint-3-task-2-redis-caching-and-load-test` branch)
@@ -188,10 +202,13 @@ duplicate-request test in Sprint 5.
   `redis` dependency; strict JSON, see below)
 - `docker-compose.yml` (the `redis` service block and routing-replica
   `REDIS_URL`/`ROUTE_CACHE_TTL_SECONDS`/`depends_on` wiring)
-- `load-tests/sprint-3-load.js` (rewritten from the existing scaffold)
-- `results/sprint-3-load-test.md` (new)
 - `docs/SERVICES.md` (Redis node in the diagram, service list entry, and the
   caching verification section)
+
+`load-tests/sprint-3-load.js` and `results/sprint-3-load-test.md` were also
+written and rewritten during this session (see Turns 4–5 and 10 above), but
+were removed from this branch in Turn 11 in favor of PR #14's version, so
+they are no longer part of this PR's diff.
 
 ## Strict JSON disclosure
 
