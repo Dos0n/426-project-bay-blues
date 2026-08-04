@@ -7,6 +7,9 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:3002';
 // AI: Austin's Sprint 3 individual test targets incident-service through its public ambassador path.
 const INCIDENT_BASE_URL =
   __ENV.INCIDENT_BASE_URL || 'http://localhost:3003';
+// AI: Bruce's Sprint 3 individual test targets his responder-dispatch-service directly because it has no ambassador.
+const DISPATCH_BASE_URL =
+  __ENV.DISPATCH_BASE_URL || 'http://localhost:3004';
 
 // AI: Per-service metrics keep Austin's incident SLO evidence separate from the existing routing measurements.
 const routingRequests = new Counter('routing_route_requests');
@@ -15,6 +18,10 @@ const routingDuration = new Trend('routing_route_duration', true);
 const incidentRequests = new Counter('incident_create_requests');
 const incidentFailures = new Rate('incident_create_failed');
 const incidentDuration = new Trend('incident_create_duration', true);
+// AI: Separate dispatch metrics expose Bruce's service-level request count, reliability, and latency distribution.
+const dispatchRequests = new Counter('dispatch_create_requests');
+const dispatchFailures = new Rate('dispatch_create_failed');
+const dispatchDuration = new Trend('dispatch_create_duration', true);
 
 // Campus region centers from regional-routing-service/data/regions.json.
 const LOCATIONS = [
@@ -35,18 +42,43 @@ const EMERGENCY_TYPES = [
   'unknown',
 ];
 
+// AI: These fixture-backed IDs keep every synthetic dispatch valid without adding a setup request to the measured workload.
+const RESPONSE_TEAM_IDS = [
+  'umpd-ems-north',
+  'umpd-north',
+  'fire-ems-north',
+  'crisis-north',
+  'umpd-transit',
+  'ems-transit',
+  'fire-transit',
+  'crisis-transit',
+  'event-security-stadium',
+  'ems-stadium',
+];
+
+// AI: k6 does not expose Node's crypto.randomUUID(), so the test generates RFC 4122 v4-shaped synthetic incident IDs locally.
+const uuidV4 = () =>
+  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = character === 'x' ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
+
 export const options = {
   vus: 10,
   duration: '30s',
   // regional-routing-service SLOs from docs/SLO.md:
   // p95 latency <= 400ms; success rate >= 99% (error rate < 1%).
   // incident-service SLOs: p95 latency <= 250ms; success rate >= 99%.
+  // responder-dispatch-service SLOs: p95 latency <= 500ms; success rate >= 99%.
   thresholds: {
     http_req_failed: ['rate<0.01'],
     routing_route_duration: ['p(95)<400'],
     routing_route_failed: ['rate<0.01'],
     incident_create_duration: ['p(95)<250'],
     incident_create_failed: ['rate<0.01'],
+    dispatch_create_duration: ['p(95)<500'],
+    dispatch_create_failed: ['rate<0.01'],
   },
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(50)', 'p(95)', 'p(99)'],
 };
@@ -126,6 +158,41 @@ export default function () {
       incidentBody !== null && incidentBody.status === 'reported',
   });
   incidentFailures.add(!incidentPassed);
+
+  // AI: Each iteration submits a unique, valid dispatch so Bruce's owned service is measured under concurrent write load.
+  const teamId =
+    RESPONSE_TEAM_IDS[Math.floor(Math.random() * RESPONSE_TEAM_IDS.length)];
+  const dispatchResponse = http.post(
+    `${DISPATCH_BASE_URL}/dispatches`,
+    JSON.stringify({ incidentId: uuidV4(), teamId }),
+    {
+      headers: { 'Content-Type': 'application/json' },
+      tags: { name: 'dispatch_create' },
+    },
+  );
+  dispatchRequests.add(1);
+  dispatchDuration.add(dispatchResponse.timings.duration);
+
+  let dispatchBody;
+  try {
+    dispatchBody = dispatchResponse.json();
+  } catch {
+    dispatchBody = null;
+  }
+
+  const dispatchPassed = check(dispatchResponse, {
+    'dispatch status is 201': (r) => r.status === 201,
+    'dispatch returns dispatchId': () =>
+      dispatchBody !== null &&
+      typeof dispatchBody.dispatchId === 'string' &&
+      dispatchBody.dispatchId.length > 0,
+    'dispatch starts assigned to requested team': () =>
+      dispatchBody !== null &&
+      dispatchBody.status === 'assigned' &&
+      dispatchBody.team !== undefined &&
+      dispatchBody.team.teamId === teamId,
+  });
+  dispatchFailures.add(!dispatchPassed);
 
   sleep(1);
 }

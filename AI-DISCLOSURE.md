@@ -2517,4 +2517,109 @@ Validation: 10 VUs for 30 seconds, 200 incident writes, 200 routing requests, 1,
 The branch contains three Austin-authored commits and the requested scoped disclosure, with no new JSONL.
 ````
 
-<!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; this Sprint 3 section intentionally has no JSONL at the student's direction. -->
+## Sprint 3 Bruce Dispatch k6 Completion
+
+### Disclosure artifacts and scope
+
+- Canonical disclosure: `AI-DISCLOSURE.md`
+- New raw JSONL: intentionally omitted at the student's explicit direction
+- Relevant interaction boundary: begins with the request to complete Bruce's
+  Sprint 3 work and excludes earlier conversation
+- AI-assisted files: `load-tests/sprint-3-load.js` and
+  `results/sprint-3-load-test.md`
+- Mechanically generated test artifacts:
+  `results/k6-run.log` and `results/k6-summary.json`
+
+### Complete relevant prompts and responses
+
+#### 1. User prompt
+
+````text
+Ok now do a PR to finish Bruce’s part too
+````
+
+#### 2. Assistant response
+
+````text
+I’ll mirror Austin’s PR approach for Bruce: identify Bruce’s owned service from the rubric and Git history, add focused k6 coverage plus SLO evidence, validate it in Gantry, and open a draft PR. I’ll also follow your one-time disclosure rule from the previous turn: update `AI-DISCLOSURE.md` with only this Bruce request onward and add no new JSONL.
+````
+
+#### 3. Assistant response
+
+````text
+The repository’s AI-disclosure workflow applies to this code change, so I’m reading its local instructions before touching the branch; your explicit “no JSONL” exception remains authoritative for this PR.
+````
+
+#### 4. Assistant response
+
+````text
+Bruce owns two components, but the individual rubric needs one owned service exercised by k6. His `responder-dispatch-service` is the right target: it has a real business endpoint and a matching latency/reliability SLO. I’m checking Bruce’s earlier (later removed) k6 work so this PR can recover the useful intent while stacking cleanly on Austin’s current draft.
+````
+
+#### 5. Assistant response
+
+````text
+The earlier audit was correct: Bruce already has four technical-deliverable commits in `main`, so his commit-authorship points are covered. This PR only needs to restore dispatch coverage in the final k6 script and report. I’ll stack it on Austin’s draft PR so the two additions compose cleanly instead of creating conflicting versions of the same test files.
+````
+
+#### 6. Assistant response
+
+````text
+The Bruce addition will make each iteration issue a third request: a valid `POST /dispatches` with a unique synthetic incident ID and a real team ID. Separate dispatch counters, failure rate, latency trend, response-shape checks, and a 500 ms p95 threshold will make his rubric evidence independently readable rather than blending it with routing and incident data.
+````
+
+#### 7. Assistant response
+
+````text
+Static validation passed. Docker access is outside the workspace sandbox, so I’m requesting the normal Docker permission now to start an isolated Compose stack and run the authoritative 10-VU/30-second test from Gantry.
+````
+
+#### 8. Assistant response
+
+````text
+The isolated stack build is still waiting on Docker’s Redis image pull; the application images themselves have not failed. I’m letting that finish, then I’ll check health before running k6.
+````
+
+#### 9. Assistant response
+
+````text
+Docker Hub’s pull stalled, but the machine already has the same Redis 7 Alpine line locally under the pinned `7.2.11-alpine` tag. I’m temporarily aliasing that image as `7-alpine`, starting the isolated stack with pulling disabled, and will remove only that temporary tag after validation.
+````
+
+#### 10. Assistant response
+
+````text
+All nine containers are healthy, and Gantry confirms 10 VUs, 30 seconds, p50/p95/p99 output, and independent routing/incident/dispatch thresholds. I’m clearing only the isolated Redis cache and starting the recorded run now; Austin’s known incident-latency threshold may still make k6 exit nonzero even if every response is valid.
+````
+
+#### 11. Assistant response
+
+````text
+Bruce’s evidence passed cleanly: 160/160 dispatch writes returned valid `201` responses, all 480 dispatch checks passed, error rate was 0.00%, and dispatch p95 was 486.17 ms against the 500 ms SLO. The heavier three-service run pushed routing and incident over their latency thresholds, so the report will distinguish Bruce’s passing result from those transparent cross-service regressions.
+````
+
+#### 12. Assistant response
+
+````text
+Validation is complete and the isolated stack is fully removed, including only its containers/network/images and the temporary Redis tag; the pre-existing Redis image and unrelated containers were untouched. I’m splitting the branch into a k6-script commit, a measured-results/report commit, and a disclosure commit before opening the stacked PR.
+````
+
+#### 13. Assistant response
+
+````text
+Austin’s PR merged while I was working, and GitHub deleted its head branch. That is why the stacked-PR creation was rejected. I’m refreshing `main`; if it contains Austin’s commits as expected, I’ll rebase Bruce’s two commits onto it and open the PR directly against `main`.
+````
+
+#### 14. Assistant response
+
+````text
+PR opened: [PR #17 — Exercise Bruce dispatch service in Sprint 3 k6 test](https://github.com/Dos0n/426-project-bay-blues/pull/17)
+
+It finishes Bruce’s two missing individual rubric items: k6 now validates his `responder-dispatch-service`, and the report compares its results with the dispatch SLO.
+
+Validation: 10 VUs for 30 seconds, 160 valid dispatch writes, 480/480 dispatch checks passed, and 0.00% errors. Dispatch p95 was 486.17 ms, meeting the 500 ms target. Routing and incident remained error-free but missed their latency thresholds under the heavier three-service run; that is documented transparently.
+
+The PR targets current `main`, includes three Austin-authored commits, updates the scoped AI disclosure, and adds no JSONL.
+````
+
+<!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; the Austin and Bruce Sprint 3 completion sections intentionally have no JSONL at the student's direction. -->
