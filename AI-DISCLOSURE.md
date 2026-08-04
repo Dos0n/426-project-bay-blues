@@ -2655,7 +2655,13 @@ The complete pass is clean after those two documentation fixes. The k6 logic use
 #### 20. Assistant response
 
 ````text
-Five-minute pass complete. [PR #17](https://github.com/Dos0n/426-project-bay-blues/pull/17) is mergeable and now covers Bruce’s full individual rubric:
+PR #17 was merged while the review fixes were being committed, so GitHub correctly shows those two new commits are not part of the merged PR. I’m rebasing only the audit fixes onto the new `main` and opening a small follow-up PR; otherwise the restored SLO analysis and endpoint correction would never reach the sprint submission.
+````
+
+#### 21. Assistant response
+
+````text
+Five-minute pass complete. Bruce’s functional work is merged through [PR #17](https://github.com/Dos0n/426-project-bay-blues/pull/17), and the two audit fixes are ready in [PR #18](https://github.com/Dos0n/426-project-bay-blues/pull/18).
 
 - **Technical commits: 20/20.** Bruce already has more than three authored Sprint 3 technical commits in `main`.
 - **SLO analysis: 10/10.** The report compares dispatch p95 (486.17 ms) with the 500 ms target and 0.00% errors with the 99% reliability target.
@@ -2663,7 +2669,7 @@ Five-minute pass complete. [PR #17](https://github.com/Dos0n/426-project-bay-blu
 
 The team rubric also remains complete: Caddy/failover, Redis hit/miss behavior, the 10-VU/30-second k6 run, required report metrics, and the updated diagram are all present.
 
-I fixed two audit findings: restored detailed routing and incident SLO reasoning so this PR does not weaken Austin’s or Shri’s evidence, and corrected `docs/SLO.md` from `/dispatch` to the implemented `/dispatches` endpoint. Static syntax, Compose, k6 configuration, fixture IDs, JSON/report values, and diff checks all pass.
+PR #18 restores detailed routing and incident SLO reasoning so Bruce’s merged report does not weaken Austin’s or Shri’s evidence, and corrects `docs/SLO.md` from `/dispatch` to the implemented `/dispatches` endpoint. Static syntax, Compose, k6 configuration, fixture IDs, JSON/report values, and diff checks all pass.
 
 One transparent caveat: k6 completes all 160 iterations but exits with failed routing and incident latency thresholds under the heavier three-service workload. Dispatch passes both thresholds, and the report documents the other misses. No JSONL was added.
 ````
