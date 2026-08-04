@@ -1,91 +1,110 @@
 <!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/. -->
 
-# Sprint 3 Load Test Results — routing and incident services
+# Sprint 3 Load Test Results — routing, incident, and dispatch services
 
 ## Setup
 
-The test ran from the Gantry devcontainer attached directly to the Compose
-network. Each iteration exercised two public service paths:
+The test ran from the Gantry devcontainer attached directly to an isolated
+Compose network. Each iteration exercised three service paths:
 
 1. `GET /route` through `regional-routing-ambassador`, Caddy, and the three
    `regional-routing-service` replicas.
 2. `POST /incidents` through `incident-ambassador` to Austin's owned
    `incident-service`.
+3. `POST /dispatches` directly to Bruce's owned
+   `responder-dispatch-service`, which has no ambassador.
 
 ```bash
 docker compose up --build -d
 docker network connect <compose-network> <gantry-container>
 BASE_URL=http://regional-routing-ambassador:3000 \
 INCIDENT_BASE_URL=http://incident-ambassador:3000 \
+DISPATCH_BASE_URL=http://responder-dispatch-service:3000 \
 k6 run --summary-export=results/k6-summary.json \
   load-tests/sprint-3-load.js
 ```
 
 The script used 10 virtual users for 30 seconds with a one-second sleep after
-each paired routing/incident iteration. It completed 200 iterations and 400
-HTTP requests. Every request used synthetic fixture-compatible coordinates and
-emergency types; every incident was created only in the service's in-memory
-runtime state.
+each routing/incident/dispatch iteration. It completed 160 iterations and 480
+HTTP requests. Routing and incident inputs used synthetic fixture-compatible
+coordinates and emergency types. Each dispatch used a unique synthetic UUID
+and a real fixture-backed response-team ID.
 
 ## Measured results
 
 The per-service values come from custom k6 counters, Rates, and Trends so the
-two different SLOs are not obscured by the combined HTTP distribution.
+three different SLOs are not obscured by the combined HTTP distribution.
 
-| Metric | `regional-routing-service` (`GET /route`) | `incident-service` (`POST /incidents`) |
-|---|---:|---:|
-| Requests | 200 | 200 |
-| Request rate | 6.53 req/s | 6.53 req/s |
-| Error rate | 0.00% | 0.00% |
-| p50 latency | 126.30 ms | 299.90 ms |
-| p95 latency | 391.25 ms | 623.12 ms |
-| p99 latency | 533.15 ms | 904.13 ms |
+| Metric | `regional-routing-service` (`GET /route`) | `incident-service` (`POST /incidents`) | `responder-dispatch-service` (`POST /dispatches`) |
+|---|---:|---:|---:|
+| Requests | 160 | 160 | 160 |
+| Request rate | 5.12 req/s | 5.12 req/s | 5.12 req/s |
+| Error rate | 0.00% | 0.00% | 0.00% |
+| p50 latency | 163.56 ms | 299.94 ms | 210.40 ms |
+| p95 latency | 792.05 ms | 997.30 ms | 486.17 ms |
+| p99 latency | 1,085.09 ms | 2,527.10 ms | 1,364.86 ms |
 
-Combined results were 400 requests at 13.07 req/s with a 0.00% HTTP error
-rate. All 1,200 response checks passed: routing returned `200`, a `regionId`,
-and a response group; incident creation returned `201`, a non-empty
-`incidentId`, and the initial `reported` status.
+Combined results were 480 requests at 15.36 req/s with a 0.00% HTTP error
+rate. All 1,440 response checks passed. In particular, all 160 dispatch writes
+returned `201`, a non-empty `dispatchId`, the initial `assigned` status, and
+the requested response-team ID.
 
 ## Comparison against `docs/SLO.md`
 
 ### `regional-routing-service`
 
-- **Latency SLO met:** p95 was 391.25 ms against the 400 ms target.
-- **Reliability SLO met:** all 200 routing requests succeeded, exceeding the
-  99% target.
+- **Latency SLO not met:** p95 was 792.05 ms against the 400 ms target.
+- **Reliability SLO met:** all 160 routing requests returned valid responses,
+  exceeding the 99% target.
 
-<!-- AI: Austin's individual Sprint 3 analysis compares the measured incident path with his owned service's SLOs. -->
 ### `incident-service`
 
-- **Latency SLO not met:** p95 was 623.12 ms against the 250 ms target. The
-  minimum observed end-to-end time was already 254.34 ms because the request
-  includes the service's simulated 200 ms processing delay plus the
-  ambassador's simulated 50 ms inspection delay and network overhead.
-- **Reliability SLO met:** all 200 incident writes returned valid `201`
-  responses, exceeding the 99% target. The incident checks passed 600/600.
+- **Latency SLO not met:** p95 was 997.30 ms against the 250 ms target.
+- **Reliability SLO met:** all 160 incident writes returned valid `201`
+  responses, exceeding the 99% target.
 
-The k6 process completed every iteration, but it reported a failed
-`incident_create_duration` threshold because the latency SLO was missed. That
-threshold failure is retained in `results/k6-run.log` rather than hidden.
+<!-- AI: Bruce's individual Sprint 3 analysis compares the measured dispatch path with his owned service's SLOs. -->
+### `responder-dispatch-service`
+
+The SLO document calls this operation `POST /dispatch`; the implemented and
+tested service route is `POST /dispatches`.
+
+- **Latency SLO met:** p95 was 486.17 ms against the 500 ms target. This passed
+  with only 13.83 ms of margin, while p99 reached 1,364.86 ms, so the result
+  exposes meaningful tail-latency risk despite meeting the stated percentile.
+- **Reliability SLO met:** all 160 dispatch writes returned valid `201`
+  responses and all 480 dispatch-specific checks passed, exceeding the 99%
+  target.
+- **Exactly-once invariant not measured:** the script deliberately sends a
+  unique incident ID for each write. A dedicated duplicate-request test would
+  be needed to determine whether concurrent retries can create two dispatches
+  for the same incident.
+
+The k6 process completed every iteration, but it reported failed routing and
+incident latency thresholds. Those failures remain in `results/k6-run.log`;
+Bruce's dispatch latency and reliability thresholds both passed.
 
 ## Interpretation
 
-The updated run proves that Austin's service functions correctly in the full
-system under concurrent load: all incident writes were accepted through the
-ambassador and returned valid records. Reliability is currently stronger than
-latency.
+<!-- AI: This interpretation explains Bruce's service behavior and the combined-run bottleneck without hiding threshold failures. -->
+The updated run proves that Bruce's `responder-dispatch-service` functions
+correctly within the full system under concurrent load. Every synthetic
+dispatch was accepted and returned a correctly shaped assignment for the
+requested team.
 
-The incident path's main bottleneck is its fixed sequential latency budget.
-The configured 200 ms service delay and 50 ms ambassador delay consume the
-entire 250 ms p95 target before queueing or network variability is considered.
-Under 10 concurrent users, the tail grew to 623 ms at p95 and 904 ms at p99.
+Dispatch latency has a fixed floor from the configured 200 ms
+`DISPATCH_LATENCY_MS`. The 210.40 ms median shows that normal proxy/network
+overhead is small, but the 486.17 ms p95 nearly consumes the 500 ms budget and
+the 1,364.86 ms p99 shows a much longer contention tail. Unlike routing reads,
+each dispatch is a new state-changing operation and cannot be made faster with
+the existing route cache.
 
-The next change should either reduce those simulated delays or define the
-250 ms SLO at the direct service boundary and add a separate end-to-end SLO for
-the ambassador path. If higher concurrency still raises the tail after that,
-the service will need a shared incident-state design before safe replication;
-replicating its current in-memory mutable state would create inconsistent
-reads. The routing path remained within its p95 SLO, while its p99 shows that
-cold-cache and contention cases still deserve future stress testing.
+The three-service run also increased system-wide contention compared with the
+earlier two-service baseline: routing and incident reliability stayed at
+100%, but both latency p95 values crossed their thresholds. The next useful
+tests are a higher-load dispatch stress test to locate its saturation point
+and a duplicate-incident test to evaluate the exactly-once requirement. If
+dispatch tail latency grows under that pressure, a later sprint could evaluate
+queueing or safe shared-state replication rather than caching write results.
 
 <!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/. -->
