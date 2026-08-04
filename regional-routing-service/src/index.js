@@ -52,9 +52,21 @@ const routeCacheTtlSeconds = readBoundedInteger(
   1,
   3600,
 );
-const cacheCoordinatePrecision = 2;
+// AI: Austin's review fix — 2 decimal places (~1km) merged distinct nearby
+// venues (e.g. Central Transit and the Wellness Center) into the same cache
+// key, so a cached Central Transit route was served for Wellness Center
+// requests. 6 decimal places (~0.1m) still caches exact repeated lookups
+// (the common case for a crowd at one venue) without merging real, distinct
+// coordinates into the same key.
+const cacheCoordinatePrecision = 6;
 
-const redisClient = createClient({ url: redisUrl });
+// AI: Austin's review fix — with the default offline queue, commands issued
+// while Redis is unreachable hang until reconnection instead of rejecting,
+// so the earlier try/catch fallback never actually ran; a request would just
+// sit until the ambassador's own upstream timeout fired. Disabling the
+// offline queue makes a command reject immediately when Redis is down, which
+// the route handler below already treats as a cache miss.
+const redisClient = createClient({ url: redisUrl, disableOfflineQueue: true });
 redisClient.on("error", (error) => {
   console.error(
     JSON.stringify({
@@ -192,7 +204,7 @@ app.get("/regions", (_request, response, next) => {
   }, next);
 });
 
-app.get("/route", (request, response, next) => {
+app.get("/route", async (request, response, next) => {
   const latitudeResult = parseCoordinate(
     request.query.latitude,
     "latitude",
@@ -281,60 +293,71 @@ app.get("/route", (request, response, next) => {
 
   // AI: Sprint 3 cache hits skip respondAfterLatency entirely so the endpoint demonstrably
   // answers faster on a repeated location than it does on first access.
-  redisClient
-    .get(cacheKey)
-    .then((cachedValue) => {
-      if (cachedValue !== null) {
-        logCacheEvent("HIT");
-        const cachedBody = JSON.parse(cachedValue);
-        response.status(200).json({
-          servedBy: replicaId,
-          ...cachedBody,
-          routedAt: new Date().toISOString(),
-          cache: "HIT",
-        });
-        return;
-      }
+  // AI: Austin's review fix — a Redis outage previously bubbled up to `next`
+  // and returned a 500/504, even though the replica can still compute the
+  // route itself. A failed cache read is now treated as a cache miss instead.
+  let cachedValue = null;
 
-      logCacheEvent("MISS");
+  try {
+    cachedValue = await redisClient.get(cacheKey);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        message: "Redis cache read failed; falling back to direct route calculation",
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
 
-      respondAfterLatency(() => {
-        const result = buildRouteResult();
+  if (cachedValue !== null) {
+    logCacheEvent("HIT");
+    const cachedBody = JSON.parse(cachedValue);
+    response.status(200).json({
+      servedBy: replicaId,
+      ...cachedBody,
+      routedAt: new Date().toISOString(),
+      cache: "HIT",
+    });
+    return;
+  }
 
-        if (result.notFound) {
-          response.status(404).json({
-            error: {
-              code: "REGION_NOT_FOUND",
-              message:
-                "No region could be matched for the supplied coordinates",
-            },
-          });
-          return;
-        }
+  logCacheEvent("MISS");
 
-        redisClient
-          .set(cacheKey, JSON.stringify(result.body), {
-            EX: routeCacheTtlSeconds,
-          })
-          .catch((error) => {
-            console.error(
-              JSON.stringify({
-                level: "error",
-                message: "Failed to store route result in cache",
-                error: error instanceof Error ? error.message : String(error),
-              }),
-            );
-          });
+  respondAfterLatency(() => {
+    const result = buildRouteResult();
 
-        response.status(200).json({
-          servedBy: replicaId,
-          ...result.body,
-          routedAt: new Date().toISOString(),
-          cache: "MISS",
-        });
-      }, next);
-    })
-    .catch(next);
+    if (result.notFound) {
+      response.status(404).json({
+        error: {
+          code: "REGION_NOT_FOUND",
+          message: "No region could be matched for the supplied coordinates",
+        },
+      });
+      return;
+    }
+
+    redisClient
+      .set(cacheKey, JSON.stringify(result.body), {
+        EX: routeCacheTtlSeconds,
+      })
+      .catch((error) => {
+        console.error(
+          JSON.stringify({
+            level: "error",
+            message: "Failed to store route result in cache",
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
+      });
+
+    response.status(200).json({
+      servedBy: replicaId,
+      ...result.body,
+      routedAt: new Date().toISOString(),
+      cache: "MISS",
+    });
+  }, next);
 });
 
 app.use((_request, response) => {
