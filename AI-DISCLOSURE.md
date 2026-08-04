@@ -2496,4 +2496,25 @@ The in-network run confirms the functional requirement—every routing and incid
 The final run produced the evidence Austin was missing: 200 incident writes, 0% errors, and 600/600 incident checks passed. The incident latency SLO did not pass—p95 was 623.12 ms versus 250 ms—so the report now explains that the configured 200 ms service delay plus 50 ms ambassador delay already exhausts the budget before load variability. I’m validating the artifacts and disclosure next, then I’ll commit and open the draft PR.
 ````
 
+#### 10. Assistant response
+
+````text
+The implementation is now split into three reviewable commits: the k6 script, the measured results/report, and the scoped disclosure. Validation is clean outside the intentionally preserved terminal spacing in the raw k6 log. I’m checking the final branch diff, then I’ll push it and open the draft PR.
+````
+
+#### 11. Assistant response
+
+````text
+Draft PR opened: [PR #16 — Exercise Austin incident service in Sprint 3 k6 test](https://github.com/Dos0n/426-project-bay-blues/pull/16)
+
+It completes Austin’s two missing individual rubric items:
+
+- k6 now exercises `incident-service` through `incident-ambassador` and validates every created incident.
+- The report now compares Austin’s incident latency and reliability against `docs/SLO.md`.
+
+Validation: 10 VUs for 30 seconds, 200 incident writes, 200 routing requests, 1,200/1,200 checks passed, and 0.00% errors. Routing met its p95 SLO at 391.25 ms. Incident reliability passed, but its 623.12 ms p95 missed the 250 ms latency SLO; the report explains the bottleneck instead of hiding it.
+
+The branch contains three Austin-authored commits and the requested scoped disclosure, with no new JSONL.
+````
+
 <!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; this Sprint 3 section intentionally has no JSONL at the student's direction. -->
