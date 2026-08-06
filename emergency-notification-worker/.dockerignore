@@ -1,0 +1,3 @@
+# AI: This Docker context exclusion list was generated with AI assistance.
+node_modules/
+npm-debug.log*
