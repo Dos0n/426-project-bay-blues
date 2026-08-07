@@ -1,5 +1,4 @@
-# AI: This file was generated or substantially modified with AI assistance.
-# See AI-DISCLOSURE.md and ai/chats/ for session logs.
+# AI: This file was generated or substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.
 services:
   incident-service:
     build:
@@ -248,3 +247,4 @@ services:
 
 volumes:
   rabbitmq-data:
+# AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.

@@ -1,4 +1,4 @@
-// AI: This file was generated or substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
+// AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md, ai/chats/austinf-sprint2/austinf-sprint2.jsonl, and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import express from "express";
@@ -299,11 +299,9 @@ app.disable("x-powered-by");
 // Parse JSON and enforce the request-size limit before any route handles input.
 app.use(express.json({ limit: "100kb" }));
 
+// AI: Sprint 4 review aligned the health payload with the rubric's exact JSON contract.
 app.get("/health", (_request, response) => {
-  response.status(200).json({
-    status: "ok",
-    service: "incident-service",
-  });
+  response.status(200).json({ status: "ok" });
 });
 
 app.post("/incidents", async (request, response, next) => {
@@ -461,4 +459,4 @@ start().catch((error) => {
   );
   process.exit(1);
 });
-// AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
+// AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/austinf-sprint2/austinf-sprint2.jsonl, and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.

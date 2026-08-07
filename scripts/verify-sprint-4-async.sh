@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AI: This Sprint 4 async-path verification script was generated with AI assistance.
+# AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.
 set -euo pipefail
 
 readonly queue_name="${NOTIFICATION_QUEUE:-incident-notification-jobs}"
@@ -275,4 +275,4 @@ printf 'PASS unacknowledged work is redelivered after worker failure\n'
 phase "Sprint 4 asynchronous path verification complete"
 printf 'PASS notification queue drained successfully\n'
 
-# AI: End AI-assisted Sprint 4 async-path verification script.
+# AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.

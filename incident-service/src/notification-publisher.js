@@ -1,4 +1,4 @@
-// AI: This RabbitMQ notification publisher was generated with AI assistance.
+// AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.
 import { randomUUID } from "node:crypto";
 import amqp from "amqplib";
 
@@ -121,4 +121,4 @@ const createNotificationPublisher = async ({
 };
 
 export { createNotificationPublisher };
-// AI: End AI-assisted notification publisher.
+// AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.

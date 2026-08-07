@@ -1,4 +1,4 @@
-<!-- AI: This design contract was created with AI assistance. See AI-DISCLOSURE.md and ai/chats/ for disclosure records. -->
+<!-- AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl. -->
 # Sprint 4 Asynchronous Notification Design Contract
 
 ## Status and Scope
@@ -179,4 +179,4 @@ descriptions, coordinates, credentials, or the complete message body.
 - Durable incident database storage or a transactional outbox.
 - Moving regional routing or responder dispatch into the notification worker.
 
-<!-- AI: End AI-assisted design contract. See AI-DISCLOSURE.md and ai/chats/ for disclosure records. -->
+<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl. -->

@@ -1,7 +1,8 @@
-<!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/ for session logs. -->
-# Current Service List
+<!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl. -->
+# Service List
 
-- `emergency-gateway`: Receives mobile emergency requests, validates their basic shape, preserves an idempotency key for safe retries, and forwards accepted requests into the incident workflow.
+## Current Containerized Services
+
 - `incident-service` (Owner: `@austinfairbanks`): Creates and tracks simulated emergency incidents, assigns each request an incident ID and severity level, maintains the authoritative incident state, and publishes one persistent notification job to RabbitMQ after a valid `POST /incidents` request.
 - `rabbitmq`: Sprint 4 work-queue broker that durably stores `incident-notification-jobs` between the incident producer and notification worker; it is separate from the Sprint 3 Redis cache.
 - `emergency-notification-worker` (Owner: `@austinfairbanks`): Consumes one RabbitMQ incident-notification job at a time, logs receipt and simulated notification completion, and acknowledges each valid job only after processing finishes.
@@ -11,6 +12,10 @@
 - `regional-routing-ambassador` (Owner: `@ShriRadhakrishnan1`): Ambassador proxy in front of the routing load balancer; forwards lookups, applies timeout/retry under load, and logs each upstream attempt.
 - `incident-ambassador` (Owner: `@Dos0n`): Ambassador proxy in front of `incident-service`; forwards `GET` and `POST` requests, retries safe (`GET`/`HEAD`) requests on timeout or 5xx, never retries `POST /incidents` to avoid duplicate incident creation, applies a simulated request-inspection delay via `setTimeout` before replying, and logs each upstream attempt.
 - `responder-dispatch-service` (Owner: `@Dos0n`): Simulates notifying and assigning the appropriate security, medical, police, or crisis-response team via `POST /dispatches` (body: `incidentId`, `teamId`), tracks dispatch status through `GET /dispatches/:dispatchId` and `PATCH /dispatches/:dispatchId/status`, and lists the response-team roster via `GET /teams`.
+
+## Planned Service
+
+- `emergency-gateway` (not yet containerized): Will receive mobile emergency requests, validate their basic shape, preserve an idempotency key for safe retries, and forward accepted requests into the incident workflow.
 
 ## Current Sprint 4 Container Architecture
 
@@ -205,4 +210,4 @@ Any pull request that adds, removes, or renames a service or infrastructure
 container, or changes a connection between them, must update both the service
 list and the Mermaid diagram above. The repository pull-request template
 includes this as a required checklist item.
-<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/ for session logs. -->
+<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl. -->

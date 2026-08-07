@@ -1,4 +1,4 @@
-// AI: This RabbitMQ notification worker was generated with AI assistance.
+// AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.
 import os from "node:os";
 import amqp from "amqplib";
 import express from "express";
@@ -220,4 +220,4 @@ start().catch((error) => {
   process.exit(1);
 });
 
-// AI: End AI-assisted notification worker.
+// AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.
