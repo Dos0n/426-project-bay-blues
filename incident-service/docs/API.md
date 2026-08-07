@@ -4,11 +4,12 @@
 
 ## Status and Scope
 
-This document defines the Sprint 2 API contract for `incident-service`. The
-service owns simulated incident records, assigns incident IDs, records optional
-caller-supplied severity, defaults missing severity to `unassessed`, and
-exposes those records over HTTP. Regional selection and responder dispatch are
-owned by other services.
+This document defines the current API contract for `incident-service` through
+Sprint 4. The service owns simulated incident records, assigns incident IDs,
+records optional caller-supplied severity, defaults missing severity to
+`unassessed`, and exposes those records over HTTP. A valid incident creation
+also publishes one durable notification job to RabbitMQ. Regional selection
+and responder dispatch are owned by other services.
 
 This is a simulation contract. It does not require a real database, external
 API, authentication system, or real user data.
@@ -16,11 +17,14 @@ API, authentication system, or real user data.
 ## Runtime Contract
 
 - Internal container port: `3000`
-- Default host port: `3001`
+- Public access: `incident-ambassador` on host port `3003`; the incident
+  container is internal to the Compose network.
 - Request and response media type: `application/json`
 - `PORT` must be an integer from `1` through `65535`; its default is `3000`.
 - `INCIDENT_LATENCY_MS` must be an integer from `0` through `10000`; its
   default is `200`.
+- `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD`, and
+  `NOTIFICATION_QUEUE` configure the Sprint 4 notification publisher.
 - JSON request bodies are limited to 100 KB.
 - Data endpoints receive simulated latency; `/health` does not.
 - Reports originate from the phone-facing application or its web client. Since
@@ -119,7 +123,9 @@ The endpoint is cheap, deterministic, and has no simulated latency.
 
 ## `POST /incidents`
 
-Creates a simulated incident in runtime memory.
+Publishes a persistent notification job and creates a simulated incident in
+runtime memory. The service waits for RabbitMQ to confirm the publish but does
+not wait for the notification worker to process it.
 
 ### Request
 
@@ -169,6 +175,9 @@ Header: `Location: /incidents/{incidentId}`
 
 Body: the complete created incident representation.
 
+The incident is added to runtime memory only after RabbitMQ confirms the
+notification job.
+
 ### Validation response
 
 Status: `400 Bad Request`
@@ -187,6 +196,22 @@ Status: `400 Bad Request`
 
 The successful and validation responses both receive simulated data-processing
 latency.
+
+### Notification queue unavailable response
+
+Status: `503 Service Unavailable`
+
+```json
+{
+  "error": {
+    "code": "NOTIFICATION_QUEUE_UNAVAILABLE",
+    "message": "The incident could not be accepted because durable notification processing is unavailable"
+  }
+}
+```
+
+This response means RabbitMQ did not confirm the notification job. The
+incident is not added to the runtime index.
 
 ## `GET /incidents/:incidentId`
 
@@ -242,7 +267,7 @@ An unknown method or path receives `404 Not Found` with error code
 Error` with error code `INTERNAL_ERROR`; internal details are logged but are not
 returned to the client.
 
-## Sprint 2 Non-Goals
+## Non-Goals
 
 - Durable writes or a real database
 - Database sharding or replication
@@ -250,7 +275,9 @@ returned to the client.
 - Updating incident status
 - Authentication or authorization
 - Routing incidents to regions or responders
-- Redis queues, metrics, retries, or failure recovery
+- Real SMS, email, or push-notification delivery
+- Kafka pub/sub, exactly-once processing, or a transactional outbox
+- Metrics, automatic retries, or automatic broker reconnection
 
 These capabilities can be added in later sprints without changing the basic
 incident representation or the three endpoint paths defined here.
