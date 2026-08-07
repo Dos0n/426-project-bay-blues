@@ -299,9 +299,11 @@ app.disable("x-powered-by");
 // Parse JSON and enforce the request-size limit before any route handles input.
 app.use(express.json({ limit: "100kb" }));
 
-// AI: Sprint 4 review aligned the health payload with the rubric's exact JSON contract.
 app.get("/health", (_request, response) => {
-  response.status(200).json({ status: "ok" });
+  response.status(200).json({
+    status: "ok",
+    service: "incident-service",
+  });
 });
 
 app.post("/incidents", async (request, response, next) => {
