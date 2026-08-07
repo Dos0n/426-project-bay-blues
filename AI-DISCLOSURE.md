@@ -4988,4 +4988,57 @@ You’re right. The latest review commit crossed into teammate scope in two plac
 The net functional state now matches the branch before the rubric-review commit: no README failure-scenario instructions and no Task 2 health-contract change. The remaining differences are Task 1 disclosure references only. Because this correction itself was AI-assisted, the course disclosure workflow requires me to refresh the same raw transcript and readable section before committing the correction.
 `````
 
+#### 133. Assistant response
+
+`````text
+Corrected and pushed as `86a9bf9`.
+
+Removed from the rubric-review changes:
+
+- Task 2’s incident health-response modification.
+- Task 3’s README failure-scenario instructions.
+
+No Caddy healthcheck or `results/sprint-4-failure.md` work was added. Task 1’s broker healthcheck and async-path verification remain intact.
+
+I used a corrective commit because the original commit was already pushed; the worktree is clean.
+`````
+
+#### 134. User prompt
+
+`````text
+Ok so given those - I’m good?
+`````
+
+#### 135. Assistant response
+
+`````text
+Yes—your Task 1 scope is in good shape:
+
+- Async path: 25/25 defensible.
+- Updated system diagram: 10/10.
+- Technical commit attribution: 20/20.
+- Verification passes and disclosure is complete.
+- Branch is pushed and clean.
+
+Only remaining action for your work is opening/reviewing/merging the PR. Tasks 2 and 3 remain with your teammates.
+`````
+
+#### 136. User prompt
+
+`````text
+Ok mount the PR and give me a link then make sure the PR includes the AI disclosure in the repo-accepted way
+`````
+
+#### 137. Assistant response
+
+`````text
+I’ll create the PR against `main` and return its link. Since you explicitly called out disclosure, I’m re-running the repository’s AI-disclosure workflow first: refresh the raw JSONL, refresh the verbatim Markdown section, verify both are committed, then use the repository’s PR template and confirm the remote PR diff contains them.
+`````
+
+#### 138. Assistant response
+
+`````text
+I’m at the PR packaging step now. I’m checking the repository’s exact PR template, then I’ll refresh and commit the disclosure snapshot before opening the PR so the remote diff—not just the local branch—proves both required disclosure artifacts are included.
+`````
+
 <!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; the Austin and Bruce Sprint 3 completion sections intentionally have no JSONL at the student's direction. -->
