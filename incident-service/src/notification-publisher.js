@@ -48,6 +48,7 @@ const confirmPublish = (channel, queueName, job) =>
 const createNotificationPublisher = async ({
   hostname,
   port,
+  heartbeatSeconds,
   username,
   password,
   queueName,
@@ -58,7 +59,7 @@ const createNotificationPublisher = async ({
     port,
     username,
     password,
-    heartbeat: 10,
+    heartbeat: heartbeatSeconds,
   });
 
   connection.on("error", (error) => {

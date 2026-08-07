@@ -50,6 +50,12 @@ const incidentLatencyMs = readBoundedInteger(
 );
 const rabbitMqHost = readEnvironmentValue("RABBITMQ_HOST", "rabbitmq");
 const rabbitMqPort = readBoundedInteger("RABBITMQ_PORT", 5672, 1, 65535);
+const rabbitMqHeartbeatSeconds = readBoundedInteger(
+  "RABBITMQ_HEARTBEAT_SECONDS",
+  60,
+  5,
+  300,
+);
 const rabbitMqUser = readEnvironmentValue("RABBITMQ_USER");
 const rabbitMqPassword = readEnvironmentValue("RABBITMQ_PASSWORD");
 const notificationQueue = readEnvironmentValue(
@@ -426,6 +432,7 @@ const start = async () => {
   const publisher = await createNotificationPublisher({
     hostname: rabbitMqHost,
     port: rabbitMqPort,
+    heartbeatSeconds: rabbitMqHeartbeatSeconds,
     username: rabbitMqUser,
     password: rabbitMqPassword,
     queueName: notificationQueue,

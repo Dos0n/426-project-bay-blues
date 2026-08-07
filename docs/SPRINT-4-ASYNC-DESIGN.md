@@ -64,7 +64,7 @@ lookup.
 - Run as infrastructure in the root `docker-compose.yml`.
 - Store the durable `incident-notification-jobs` queue.
 - Persist broker data in a named Compose volume.
-- Report readiness through `rabbitmq-diagnostics -q ping`.
+- Report application readiness through `rabbitmq-diagnostics -q check_running`.
 - Hold ready messages while the worker is unavailable.
 - Redeliver a message if its consumer disconnects before acknowledging it.
 
@@ -134,10 +134,10 @@ approved scope.
 
 ## Configuration Contract
 
-Compose supplies the broker hostname, credentials, queue name, and simulated
-processing delay through environment variables. Local development defaults are
-documented in `.env.example`; source code does not contain credentials and
-must not log the connection URL or password.
+Compose supplies the broker hostname, credentials, heartbeat interval, queue
+name, and simulated processing delay through environment variables. Local
+development defaults are documented in `.env.example`; source code does not
+contain credentials and must not log the connection URL or password.
 
 Both `incident-service` and `emergency-notification-worker` will use
 `depends_on: rabbitmq: condition: service_healthy`. Redis remains solely the

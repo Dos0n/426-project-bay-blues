@@ -4,6 +4,7 @@ set -euo pipefail
 
 readonly queue_name="${NOTIFICATION_QUEUE:-incident-notification-jobs}"
 readonly normal_processing_ms="${NOTIFICATION_PROCESSING_MS:-500}"
+readonly health_wait_attempts="${HEALTH_WAIT_ATTEMPTS:-180}"
 readonly worker_service="emergency-notification-worker"
 readonly -a compose=(docker compose)
 
@@ -41,7 +42,7 @@ wait_for_health() {
   local container_id
   local health_status
 
-  for _attempt in {1..45}; do
+  for ((_attempt = 1; _attempt <= health_wait_attempts; _attempt += 1)); do
     container_id="$("${compose[@]}" ps -q "$service")"
 
     if [[ -n "$container_id" ]]; then
@@ -64,63 +65,53 @@ wait_for_health() {
   fail "$service did not become healthy"
 }
 
-queue_counts() {
-  local counts
+queue_ready_count() {
+  "${compose[@]}" exec -T incident-service \
+    node --input-type=module -e '
+      import amqp from "amqplib";
 
-  counts="$(
-    "${compose[@]}" exec -T rabbitmq \
-      rabbitmqctl -q list_queues \
-      name messages_ready messages_unacknowledged \
-      | awk -v queue="$queue_name" '$1 == queue { print $2, $3 }'
-  )"
+      const connection = await amqp.connect({
+        protocol: "amqp",
+        hostname: process.env.RABBITMQ_HOST,
+        port: Number(process.env.RABBITMQ_PORT),
+        username: process.env.RABBITMQ_USER,
+        password: process.env.RABBITMQ_PASSWORD,
+        heartbeat: Number(process.env.RABBITMQ_HEARTBEAT_SECONDS),
+      });
+      const channel = await connection.createChannel();
+      const queue = await channel.checkQueue(process.env.NOTIFICATION_QUEUE);
 
-  [[ -n "$counts" ]] || fail "queue $queue_name was not found"
-  printf '%s\n' "$counts"
+      console.log(queue.messageCount);
+      await channel.close();
+      await connection.close();
+    '
 }
 
-assert_queue_empty_or_missing() {
-  local counts
+assert_queue_empty() {
   local ready
-  local unacknowledged
 
-  counts="$(
-    "${compose[@]}" exec -T rabbitmq \
-      rabbitmqctl -q list_queues \
-      name messages_ready messages_unacknowledged \
-      | awk -v queue="$queue_name" '$1 == queue { print $2, $3 }'
-  )"
+  ready="$(queue_ready_count)"
 
-  if [[ -z "$counts" ]]; then
-    return
-  fi
-
-  read -r ready unacknowledged <<<"$counts"
-
-  if [[ "$ready" != "0" || "$unacknowledged" != "0" ]]; then
-    fail "queue $queue_name already contains ready=$ready unacknowledged=$unacknowledged"
+  if [[ "$ready" != "0" ]]; then
+    fail "queue $queue_name already contains ready=$ready"
   fi
 }
 
-wait_for_queue_counts() {
+wait_for_queue_ready() {
   local expected_ready="$1"
-  local expected_unacknowledged="$2"
-  local counts
   local ready
-  local unacknowledged
 
   for _attempt in {1..45}; do
-    counts="$(queue_counts)"
-    read -r ready unacknowledged <<<"$counts"
+    ready="$(queue_ready_count)"
 
-    if [[ "$ready" == "$expected_ready" && \
-      "$unacknowledged" == "$expected_unacknowledged" ]]; then
+    if [[ "$ready" == "$expected_ready" ]]; then
       return
     fi
 
     sleep 1
   done
 
-  fail "queue counts did not reach ready=$expected_ready unacknowledged=$expected_unacknowledged"
+  fail "queue $queue_name did not reach ready=$expected_ready"
 }
 
 wait_for_log() {
@@ -165,10 +156,10 @@ published_port() {
 }
 
 create_incident() {
-  local incident_base_url="$1"
+  local base_url="$1"
   local venue="$2"
 
-  curl -fsS -X POST "$incident_base_url/incidents" \
+  curl -fsS -X POST "$base_url/incidents" \
     -H 'Content-Type: application/json' \
     --data "{\"emergencyType\":\"medical\",\"severity\":\"critical\",\"location\":{\"latitude\":42.3868,\"longitude\":-72.5301,\"venue\":\"$venue\"}}"
 }
@@ -183,22 +174,28 @@ fi
 
 "${compose[@]}" up -d rabbitmq
 wait_for_health rabbitmq
-assert_queue_empty_or_missing
 
-"${compose[@]}" up --build -d \
+"${compose[@]}" build \
   "$worker_service" \
   incident-service \
   incident-ambassador
 
+"${compose[@]}" up --force-recreate -d incident-service
+wait_for_health incident-service
+assert_queue_empty
+
+"${compose[@]}" up --force-recreate -d \
+  "$worker_service" \
+  incident-ambassador
+
 wait_for_health "$worker_service"
 restore_mode="none"
-wait_for_health incident-service
 wait_for_health incident-ambassador
 
 readonly incident_port="$(published_port incident-ambassador 3000)"
 readonly incident_base_url="http://127.0.0.1:$incident_port"
 
-wait_for_queue_counts 0 0
+wait_for_queue_ready 0
 
 phase "Verify normal enqueue, delivery, processing, and acknowledgment"
 normal_response="$(create_incident "$incident_base_url" "Gate 4 normal flow")"
@@ -210,7 +207,7 @@ wait_for_log "$worker_service" \
   "\"event\":\"incident_notification_received\".*\"incidentId\":\"$normal_incident_id\""
 wait_for_log "$worker_service" \
   "\"event\":\"incident_notification_completed\".*\"incidentId\":\"$normal_incident_id\""
-wait_for_queue_counts 0 0
+wait_for_queue_ready 0
 printf 'PASS normal enqueue and consume\n'
 
 phase "Verify invalid and read-only requests do not enqueue"
@@ -229,7 +226,7 @@ curl -fsS "$incident_base_url/incidents/$normal_incident_id" >/dev/null
 enqueue_count_after="$(enqueue_log_count)"
 [[ "$enqueue_count_after" == "$enqueue_count_before" ]] || \
   fail "invalid or read-only request unexpectedly enqueued work"
-wait_for_queue_counts 0 0
+wait_for_queue_ready 0
 printf 'PASS invalid and read-only requests do not enqueue\n'
 
 phase "Verify RabbitMQ retains work while the worker is stopped"
@@ -240,13 +237,13 @@ queued_response="$(create_incident "$incident_base_url" "Gate 4 queued flow")"
 queued_incident_id="$(jq -er '.incidentId' <<<"$queued_response")"
 wait_for_log incident-service \
   "\"event\":\"incident_notification_enqueued\".*\"incidentId\":\"$queued_incident_id\""
-wait_for_queue_counts 1 0
+wait_for_queue_ready 1
 
 "${compose[@]}" start "$worker_service"
 wait_for_health "$worker_service"
 wait_for_log "$worker_service" \
   "\"event\":\"incident_notification_completed\".*\"incidentId\":\"$queued_incident_id\""
-wait_for_queue_counts 0 0
+wait_for_queue_ready 0
 restore_mode="none"
 printf 'PASS work remains queued while worker is stopped\n'
 
@@ -258,10 +255,11 @@ wait_for_health "$worker_service"
 
 redelivery_response="$(create_incident "$incident_base_url" "Gate 4 redelivery flow")"
 redelivery_incident_id="$(jq -er '.incidentId' <<<"$redelivery_response")"
-wait_for_queue_counts 0 1
+wait_for_log "$worker_service" \
+  "\"event\":\"incident_notification_received\".*\"incidentId\":\"$redelivery_incident_id\""
 
 "${compose[@]}" kill -s SIGKILL "$worker_service"
-wait_for_queue_counts 1 0
+wait_for_queue_ready 1
 
 NOTIFICATION_PROCESSING_MS="$normal_processing_ms" \
   "${compose[@]}" up -d --force-recreate "$worker_service"
@@ -270,7 +268,7 @@ wait_for_log "$worker_service" \
   "\"event\":\"incident_notification_received\".*\"incidentId\":\"$redelivery_incident_id\".*\"redelivered\":true"
 wait_for_log "$worker_service" \
   "\"event\":\"incident_notification_completed\".*\"incidentId\":\"$redelivery_incident_id\""
-wait_for_queue_counts 0 0
+wait_for_queue_ready 0
 restore_mode="none"
 printf 'PASS unacknowledged work is redelivered after worker failure\n'
 

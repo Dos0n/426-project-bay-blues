@@ -39,6 +39,12 @@ const readEnvironmentValue = (name, defaultValue) => {
 
 const port = readBoundedInteger("PORT", 3000, 1, 65535);
 const rabbitMqPort = readBoundedInteger("RABBITMQ_PORT", 5672, 1, 65535);
+const rabbitMqHeartbeatSeconds = readBoundedInteger(
+  "RABBITMQ_HEARTBEAT_SECONDS",
+  60,
+  5,
+  300,
+);
 const processingDelayMs = readBoundedInteger(
   "NOTIFICATION_PROCESSING_MS",
   500,
@@ -120,7 +126,7 @@ const start = async () => {
     port: rabbitMqPort,
     username: rabbitMqUser,
     password: rabbitMqPassword,
-    heartbeat: 10,
+    heartbeat: rabbitMqHeartbeatSeconds,
   });
 
   connection.on("error", (error) => {

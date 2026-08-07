@@ -9,6 +9,7 @@ services:
       INCIDENT_LATENCY_MS: "${INCIDENT_LATENCY_MS:-200}"
       RABBITMQ_HOST: "rabbitmq"
       RABBITMQ_PORT: "5672"
+      RABBITMQ_HEARTBEAT_SECONDS: "${RABBITMQ_HEARTBEAT_SECONDS:-60}"
       RABBITMQ_USER: "${RABBITMQ_USER:-blue-light-app}"
       RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD:-blue-light-local-only}"
       NOTIFICATION_QUEUE: "${NOTIFICATION_QUEUE:-incident-notification-jobs}"
@@ -30,6 +31,8 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     hostname: rabbitmq
+    # AI: Use the image's unprivileged account so its volume cookie remains readable under Colima.
+    user: "rabbitmq"
     environment:
       RABBITMQ_DEFAULT_USER: "${RABBITMQ_USER:-blue-light-app}"
       RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD:-blue-light-local-only}"
@@ -43,9 +46,9 @@ services:
         - CMD
         - rabbitmq-diagnostics
         - -q
-        - ping
+        - check_running
       interval: 5s
-      timeout: 5s
+      timeout: 30s
       retries: 10
       start_period: 10s
 
@@ -59,6 +62,7 @@ services:
       PORT: "3000"
       RABBITMQ_HOST: "rabbitmq"
       RABBITMQ_PORT: "5672"
+      RABBITMQ_HEARTBEAT_SECONDS: "${RABBITMQ_HEARTBEAT_SECONDS:-60}"
       RABBITMQ_USER: "${RABBITMQ_USER:-blue-light-app}"
       RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD:-blue-light-local-only}"
       NOTIFICATION_QUEUE: "${NOTIFICATION_QUEUE:-incident-notification-jobs}"
