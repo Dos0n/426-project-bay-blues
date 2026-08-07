@@ -1,8 +1,11 @@
-<!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/ for session logs. -->
-# Current Service List
+<!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl. -->
+# Service List
 
-- `emergency-gateway`: Receives mobile emergency requests, validates their basic shape, preserves an idempotency key for safe retries, and forwards accepted requests into the incident workflow.
-- `incident-service` (Owner: `@austinfairbanks`): Creates and tracks simulated emergency incidents, assigns each request an incident ID and severity level, and maintains the authoritative incident state.
+## Current Containerized Services
+
+- `incident-service` (Owner: `@austinfairbanks`): Creates and tracks simulated emergency incidents, assigns each request an incident ID and severity level, maintains the authoritative incident state, and publishes one persistent notification job to RabbitMQ after a valid `POST /incidents` request.
+- `rabbitmq`: Sprint 4 work-queue broker that durably stores `incident-notification-jobs` between the incident producer and notification worker; it is separate from the Sprint 3 Redis cache.
+- `emergency-notification-worker` (Owner: `@austinfairbanks`): Consumes one RabbitMQ incident-notification job at a time, logs receipt and simulated notification completion, and acknowledges each valid job only after processing finishes.
 - `regional-routing-service` (Owner: `@ShriRadhakrishnan1`): Three identical, stateless replicas map an incident location and emergency type to the nearest campus/venue region and an eligible local response group via `GET /route` (query params: `latitude`, `longitude`, optional `emergencyType`). Each response exposes `servedBy` so replica selection is observable. `GET /route` is Redis-cached: the cache key normalizes `latitude`/`longitude` to six decimal places and combines it with `emergencyType`, so an exact repeated lookup (e.g. many requests during an event at the Mullins Center) becomes a cache hit shared across all three replicas, without merging distinct nearby venues into the same key. Each response's `cache` field reports `"HIT"` or `"MISS"`, and every replica logs the cache key and outcome for each request. If Redis is unreachable, a lookup falls back to computing the route directly rather than failing the request.
 - `regional-routing-load-balancer`: Caddy load balancer that checks each routing replica's `/health` endpoint and distributes requests across healthy replicas using round-robin selection.
 - `redis`: Shared Redis cache used by all three `regional-routing-service` replicas for `GET /route` results, keyed by rounded location and emergency type with a 30-second TTL (`ROUTE_CACHE_TTL_SECONDS`).
@@ -10,15 +13,21 @@
 - `incident-ambassador` (Owner: `@Dos0n`): Ambassador proxy in front of `incident-service`; forwards `GET` and `POST` requests, retries safe (`GET`/`HEAD`) requests on timeout or 5xx, never retries `POST /incidents` to avoid duplicate incident creation, applies a simulated request-inspection delay via `setTimeout` before replying, and logs each upstream attempt.
 - `responder-dispatch-service` (Owner: `@Dos0n`): Simulates notifying and assigning the appropriate security, medical, police, or crisis-response team via `POST /dispatches` (body: `incidentId`, `teamId`), tracks dispatch status through `GET /dispatches/:dispatchId` and `PATCH /dispatches/:dispatchId/status`, and lists the response-team roster via `GET /teams`.
 
-## Sprint 3 Container Architecture
+## Planned Service
+
+- `emergency-gateway` (not yet containerized): Will receive mobile emergency requests, validate their basic shape, preserve an idempotency key for safe retries, and forward accepted requests into the incident workflow.
+
+## Current Sprint 4 Container Architecture
 
 ```mermaid
 flowchart LR
     client[Phone / Web Client]
 
     subgraph compose[Docker Compose]
-        incident[incident-service<br/>Internal port 3000<br/>Create and retrieve incidents]
+        incident[incident-service<br/>Internal port 3000<br/>Create incidents and publish notification jobs]
         incidentAmbassador[incident-ambassador<br/>Host port 3003<br/>Proxy, safe retries, and request logging]
+        rabbitmq[(rabbitmq<br/>AMQP port 5672<br/>incident-notification-jobs)]
+        notificationWorker[emergency-notification-worker<br/>Health port 3005<br/>Process and acknowledge notification jobs]
         routingAmbassador[regional-routing-ambassador<br/>Host port 3002<br/>Proxy, retries, timeout, and request logging]
         routingLoadBalancer[regional-routing-load-balancer<br/>Caddy on internal port 3000<br/>Round-robin and active health checks]
         routingA[regional-routing-service-a<br/>Internal port 3000<br/>Replica A]
@@ -30,6 +39,8 @@ flowchart LR
 
     client -->|POST /incidents<br/>GET /incidents/:incidentId| incidentAmbassador
     incidentAmbassador -->|Forward through Compose DNS| incident
+    incident -->|Persistent job after valid POST /incidents| rabbitmq
+    rabbitmq -->|Deliver to one consumer| notificationWorker
     client -->|GET /route<br/>GET /regions| routingAmbassador
     routingAmbassador -->|One stable upstream| routingLoadBalancer
     routingLoadBalancer -->|Healthy upstream| routingA
@@ -41,14 +52,21 @@ flowchart LR
     client -->|POST /dispatches<br/>GET /dispatches/:dispatchId<br/>GET /teams| dispatch
 ```
 
-The primary services remain separate client-facing paths in Sprint 3;
+The primary HTTP services remain separate client-facing paths in Sprint 4;
 `incident-service`, `regional-routing-service`, and
-`responder-dispatch-service` do not call each other directly. Two of the
-primary services are only reachable through their own observable ambassador
-container: `incident-ambassador` is the only path to `incident-service`, and
+`responder-dispatch-service` do not call each other directly. A valid incident
+creation now branches into asynchronous work: `incident-service` publishes a
+persistent job to RabbitMQ and returns after broker confirmation without
+waiting for `emergency-notification-worker` to process it. RabbitMQ holds jobs
+while the worker is unavailable and redelivers a job when a worker disconnects
+before acknowledging it.
+
+Two primary services remain reachable through their observable ambassador
+containers: `incident-ambassador` is the public path to `incident-service`, and
 `regional-routing-ambassador` reaches the routing replicas through Caddy.
-`responder-dispatch-service` is reached directly, with no ambassador in
-front of it.
+`responder-dispatch-service` is reached directly, with no ambassador in front
+of it. Redis remains exclusively the shared routing cache and does not carry
+Sprint 4 notification work.
 
 The regional routing service is replicated because routing is naturally
 stateless. Every replica receives the location and emergency type, loads the
@@ -192,4 +210,4 @@ Any pull request that adds, removes, or renames a service or infrastructure
 container, or changes a connection between them, must update both the service
 list and the Mermaid diagram above. The repository pull-request template
 includes this as a required checklist item.
-<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/ for session logs. -->
+<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl. -->

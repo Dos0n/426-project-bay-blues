@@ -2674,4 +2674,2371 @@ PR #18 restores detailed routing and incident SLO reasoning so Bruce’s merged 
 One transparent caveat: k6 completes all 160 iterations but exits with failed routing and incident latency thresholds under the heavier three-service workload. Dispatch passes both thresholds, and the report documents the other misses. No JSONL was added.
 ````
 
+## Austin Sprint 4 RabbitMQ Async Path
+
+Raw transcript: `ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl`
+
+AI assisted with the Sprint 4 RabbitMQ design contract, root Compose broker and
+worker configuration, the standalone notification worker, the incident-service
+publisher, the async verification script, runtime debugging, architecture and
+API documentation, rubric review, and disclosure updates. AI also created or
+modified the strict JSON files `incident-service/package.json`,
+`incident-service/package-lock.json`, `emergency-notification-worker/package.json`,
+and `emergency-notification-worker/package-lock.json`; comments cannot be added
+inside those files because JSON does not allow them.
+
+### Complete Relevant Transcript
+
+#### 1. User prompt
+
+`````text
+Lock yourself in the sprint 4 context - we are going to be doing task 1
+`````
+
+#### 2. Assistant response
+
+`````text
+I’ll anchor this thread to Sprint 4, Task 1. I’m going to inspect the course index and Sprint 4 materials now, then I’ll summarize the exact working scope and constraints I’ll carry forward.
+`````
+
+#### 3. Assistant response
+
+`````text
+The Sprint 4 summary identifies Task 1 as the broker-backed asynchronous path. I’m loading the exact assignment wording plus the current Bay Blues architecture so later changes stay rubric-aligned and don’t accidentally disrupt Sprint 3 behavior.
+`````
+
+#### 4. Assistant response
+
+`````text
+Locked into Sprint 4, specifically Task 1: the asynchronous processing path.
+
+Working constraints I’ll preserve:
+
+- Use RabbitMQ work queue or Kafka pub/sub—not Redis.
+- Three-person team means the consumer must be a new standalone service.
+- A normal system request must trigger the async path.
+- Producer logs enqueue/publish activity.
+- Consumer logs receipt and completed processing.
+- Broker gets a real health check.
+- Broker-dependent services wait for `condition: service_healthy`.
+- Keep all Sprint 3 replication, Caddy, ambassadors, and Redis behavior intact.
+- Mark AI-modified code and maintain the required disclosure records.
+- Verify inside the Gantry devcontainer.
+
+The most natural Bay Blues design is RabbitMQ:
+
+`POST /incidents` → `incident-service` producer → durable notification queue → new emergency-notification worker
+
+This fits the domain because incident acceptance remains synchronous while responder/user notification is durable, retryable background work. I’ll remain in this context for the next request. One repository note: the current branch is still `sprint-3-task-1-ai-disclosure`, so we should create or switch to the intended Sprint 4 branch before editing.
+`````
+
+#### 5. User prompt
+
+`````text
+ok lets design this in your opinion whats the best fit of one of these here? Maybe rabbitmq in regional routing service? or maybe kafka in like an incident creation observer?
+`````
+
+#### 6. Assistant response
+
+`````text
+I’m comparing the two patterns against the actual request flow and Sprint 4 rubric. The key design test is whether we have one durable piece of follow-up work or multiple genuinely independent reactions to the same event.
+`````
+
+#### 7. Assistant response
+
+`````text
+Best fit: RabbitMQ triggered by incident creation.
+
+```text
+POST /incidents
+      ↓
+incident-service creates incident
+      ↓
+RabbitMQ: incident-notification-jobs
+      ↓
+emergency-notification-worker
+      ↓
+Simulates notifying responders/user and logs completion
+```
+
+Why this is the strongest design:
+
+- One incident creates one notification job that should be handled by exactly one worker.
+- Notification is durable and retryable but does not need to delay the original HTTP response.
+- `POST /incidents` is clearly a “normal request,” satisfying the rubric.
+- A new standalone worker satisfies the three-person-team requirement.
+- RabbitMQ is much simpler to configure and demonstrate than Kafka.
+- It fits Austin’s existing ownership of `incident-service`, providing clear technical contribution.
+
+I would not put RabbitMQ in the regional routing service. Routing is latency-sensitive and synchronous—the caller needs the route immediately. Its `GET /route` requests can also be retried, so producing jobs there could generate duplicate side effects. It would weaken the otherwise clean stateless-replica design.
+
+Kafka’s `incident.created` observer is conceptually valid, but Kafka makes sense when multiple independent consumers need every event—for example:
+
+```text
+incident.created
+├── responder-dispatch consumer group
+├── notification consumer group
+└── analytics/audit consumer group
+```
+
+With only one planned observer, Kafka adds operational complexity without demonstrating its main advantage. RabbitMQ is the clearer pattern for the rubric.
+
+Recommended message:
+
+```json
+{
+  "jobType": "incident-notification",
+  "incidentId": "...",
+  "emergencyType": "medical",
+  "severity": "critical",
+  "location": { "...": "..." },
+  "reportedAt": "..."
+}
+```
+
+Recommended behavior:
+
+- Declare a durable `incident-notification-jobs` queue.
+- Publish persistent messages after a valid incident is created.
+- Log `incident_notification_enqueued` from `incident-service`.
+- Worker uses `prefetch(1)`.
+- Log `incident_notification_received`.
+- Simulate notification work with a short delay.
+- Log `incident_notification_completed`.
+- Acknowledge only after processing finishes.
+- If the worker dies before acknowledgment, RabbitMQ redelivers the job.
+
+That gives us a clean story: incident creation stays responsive, notification work is decoupled, and queued work survives worker failure.
+`````
+
+#### 8. User prompt
+
+`````text
+good with your proposed rabbit MQ design - lets dive a little deeper on the overall design of it
+`````
+
+#### 9. User prompt
+
+`````text
+how would it layer into the service diagram?
+`````
+
+#### 10. Assistant response
+
+`````text
+It layers in as an asynchronous branch from `incident-service`; it does not sit between the client and the incident response.
+
+```text
+Client
+  │
+  │ POST /incidents
+  ▼
+incident-ambassador
+  │
+  ▼
+incident-service ───────────────► HTTP 201 to client
+  │
+  │ publish notification job
+  ▼
+RabbitMQ queue
+  │
+  │ consume one job
+  ▼
+emergency-notification-worker
+```
+
+The full Sprint 4 diagram could look like this:
+
+```mermaid
+flowchart LR
+    client[Phone / Web Client]
+
+    subgraph compose[Docker Compose]
+        incidentAmbassador[incident-ambassador<br/>Host port 3003<br/>Proxy and safe retries]
+        incident[incident-service<br/>Creates and retrieves incidents<br/>Async producer]
+
+        rabbitmq[(RabbitMQ<br/>incident-notification-jobs)]
+        notificationWorker[emergency-notification-worker<br/>Consumes and processes<br/>notification jobs]
+
+        routingAmbassador[regional-routing-ambassador<br/>Host port 3002]
+        routingLoadBalancer[regional-routing-load-balancer<br/>Caddy]
+        routingA[regional-routing-service-a]
+        routingB[regional-routing-service-b]
+        routingC[regional-routing-service-c]
+
+        dispatch[responder-dispatch-service<br/>Host port 3004]
+    end
+
+    client -->|POST /incidents<br/>GET /incidents/:incidentId| incidentAmbassador
+    incidentAmbassador -->|Synchronous HTTP| incident
+
+    incident -->|Publish persistent job| rabbitmq
+    rabbitmq -->|Deliver to one consumer| notificationWorker
+
+    client -->|GET /route<br/>GET /regions| routingAmbassador
+    routingAmbassador --> routingLoadBalancer
+    routingLoadBalancer --> routingA
+    routingLoadBalancer --> routingB
+    routingLoadBalancer --> routingC
+
+    client -->|POST /dispatches<br/>GET /dispatches/:dispatchId<br/>GET /teams| dispatch
+```
+
+The important architectural detail is that the RabbitMQ path is off to the side of the synchronous response path:
+
+1. The client submits an incident.
+2. `incident-service` validates and creates it.
+3. `incident-service` publishes a notification job.
+4. The client receives `201 Created` without waiting for simulated notification work.
+5. RabbitMQ holds the job until the worker can process it.
+6. The worker acknowledges the message only after processing completes.
+
+RabbitMQ should only connect to these two custom services:
+
+- `incident-service`: producer
+- `emergency-notification-worker`: consumer
+
+The routing replicas, Caddy, ambassadors, and dispatch service remain unchanged. In Compose, both producer and worker depend on RabbitMQ being healthy. The worker exposes `/health` for Docker even though it is not otherwise client-facing.
+
+For the diagram, I would label `incident-service` as the “async producer” and the worker as a completely separate service. That makes all five Task 1 rubric elements immediately visible: normal request, producer, broker, consumer, and asynchronous direction.
+`````
+
+#### 11. User prompt
+
+`````text
+Cool cool so it sits after each outgoing request to emergency notification worker from incisnet service?
+`````
+
+#### 12. Assistant response
+
+`````text
+Almost—but not after every outgoing request.
+
+Only a successful `POST /incidents` triggers it:
+
+```text
+Validate request
+→ Create/store incident
+→ Publish job to RabbitMQ
+→ Return 201 Created
+→ Worker later consumes and processes job
+```
+
+These do not enqueue anything:
+
+- `GET /incidents/:id`
+- `GET /health`
+- Invalid `POST /incidents`
+- Requests handled by routing or dispatch services
+
+Also, `incident-service` does not directly request the notification worker. It publishes a message to RabbitMQ; the worker independently consumes it. The HTTP response waits only for the quick publish operation—not for notification processing. This preserves the asynchronous separation while reducing the chance of acknowledging an incident before its notification job is queued.
+`````
+
+#### 13. User prompt
+
+`````text
+what does it do right now? just publish a message to emergy notifcation service?
+`````
+
+#### 14. Assistant response
+
+`````text
+Right now, the existing code does not publish anything.
+
+A successful `POST /incidents` currently:
+
+1. Validates the request.
+2. Creates an incident object.
+3. Stores it in the service’s in-memory `Map`.
+4. Returns `201 Created`.
+
+Our proposed Sprint 4 change adds:
+
+```text
+incident-service
+  → publishes a JSON job to RabbitMQ
+  → RabbitMQ stores the job
+  → emergency-notification-worker consumes it
+  → worker logs simulated notification processing
+```
+
+So `incident-service` never sends directly to the notification worker. RabbitMQ is the intermediary. The worker’s “notification” will initially be simulated through observable logs—no real SMS, email, or push-notification provider is needed.
+`````
+
+#### 15. User prompt
+
+`````text
+no like how do es the emergenvy notifiyer pickupo work now?
+`````
+
+#### 16. Assistant response
+
+`````text
+The notification worker runs continuously and subscribes to the RabbitMQ queue. It does not receive an HTTP request or poll `incident-service`.
+
+Its lifecycle is:
+
+1. Worker starts.
+2. Connects to RabbitMQ.
+3. Declares/subscribes to `incident-notification-jobs`.
+4. Waits for RabbitMQ to deliver a message.
+5. Parses the incident data.
+6. Logs that it received the job.
+7. Simulates notifying the appropriate people.
+8. Logs completion.
+9. Acknowledges the message so RabbitMQ removes it.
+
+Conceptually:
+
+```js
+channel.prefetch(1);
+
+channel.consume("incident-notification-jobs", async (message) => {
+  const job = JSON.parse(message.content.toString());
+
+  console.log("notification received", job.incidentId);
+
+  await simulateNotification(job);
+
+  console.log("notification completed", job.incidentId);
+
+  channel.ack(message);
+});
+```
+
+RabbitMQ pushes queued work to the worker as it becomes available. `prefetch(1)` means the worker handles only one unacknowledged job at a time.
+
+If the worker crashes before `channel.ack(message)`, RabbitMQ keeps or redelivers the job when a worker becomes available. If the worker is offline when an incident is created, RabbitMQ holds the persistent job until the worker returns. That durable handoff is the main reason to use RabbitMQ here.
+`````
+
+#### 17. User prompt
+
+`````text
+No gang we HAVENT implemented it yet. what does it do NOW
+`````
+
+#### 18. Assistant response
+
+`````text
+You’re right—I was describing the proposed system.
+
+Right now, there is no emergency notification worker, no RabbitMQ, and no async processing.
+
+Currently, `incident-service` only:
+
+1. Accepts `POST /incidents`.
+2. Validates the JSON.
+3. Creates an incident.
+4. Stores it in memory.
+5. Returns the incident to the client.
+
+Nothing picks up work afterward. The existing incident, routing, and dispatch services are separate client-facing paths and do not communicate with each other.
+`````
+
+#### 19. User prompt
+
+`````text
+ok so we really do need this. Lets architect consumable steps that we can implement and review togehter
+`````
+
+#### 20. Assistant response
+
+`````text
+I’ll structure this as small review gates, with each gate runnable on its own and with at least three substantive commits available for the individual-contribution rubric.
+`````
+
+#### 21. Assistant response
+
+`````text
+We’ll build it through small review gates. Each gate can become its own commit, giving you at least three substantive technical commits for Sprint 4’s individual rubric.
+
+## Design contract
+
+- Producer: `incident-service`
+- Trigger: successful `POST /incidents` only
+- Broker: RabbitMQ
+- Queue: `incident-notification-jobs`
+- Consumer: new `emergency-notification-worker`
+- Delivery: one worker processes each job
+- Acknowledgment: only after simulated notification completes
+- HTTP behavior: client waits for broker acceptance, but not worker completion
+- Existing routing, Caddy, ambassadors, and dispatch paths remain unchanged
+
+Example job:
+
+```json
+{
+  "schemaVersion": 1,
+  "jobId": "uuid",
+  "type": "incident.notification.requested",
+  "incidentId": "uuid",
+  "emergencyType": "medical",
+  "severity": "critical",
+  "reportedAt": "2026-08-06T12:00:00.000Z"
+}
+```
+
+We should avoid including descriptions or exact coordinates because the worker does not need that sensitive information.
+
+## Gate 1: RabbitMQ infrastructure
+
+Changes:
+
+- Add `rabbitmq:3-management` to Compose.
+- Add `rabbitmq-diagnostics -q ping` health check.
+- Add a named volume for broker data.
+- Document local-only credentials in `.env.example`.
+- Expose the management interface on port `15672` for inspection.
+
+Review:
+
+```bash
+docker compose up rabbitmq -d
+docker compose ps
+docker compose exec rabbitmq rabbitmq-diagnostics -q ping
+```
+
+Commit:
+
+```text
+feat: add RabbitMQ broker for notification jobs
+```
+
+## Gate 2: Notification worker
+
+Create:
+
+```text
+emergency-notification-worker/
+├── Dockerfile
+├── package.json
+└── src/
+    └── index.js
+```
+
+The worker will:
+
+- Wait for healthy RabbitMQ.
+- Connect once during startup.
+- Declare the durable queue.
+- Set `prefetch(1)`.
+- Wait continuously for messages.
+- Log receipt and completion as structured JSON.
+- Simulate work with configurable `NOTIFICATION_PROCESSING_MS`.
+- Acknowledge only after completion.
+- Expose `GET /health`.
+- Never expose a client-facing business endpoint.
+
+Review:
+
+- Container becomes healthy.
+- Logs show that it connected and is waiting.
+- RabbitMQ management UI shows one consumer.
+
+Commit:
+
+```text
+feat: add emergency notification worker
+```
+
+## Gate 3: Incident producer
+
+Add RabbitMQ publishing to `incident-service`.
+
+Successful request sequence:
+
+```text
+validate
+→ create incident
+→ store incident
+→ publish persistent notification job
+→ broker confirms acceptance
+→ log enqueue
+→ return 201
+```
+
+Important behavior:
+
+- Invalid requests do not publish.
+- `GET` requests do not publish.
+- Producer opens one long-lived RabbitMQ connection—not one per request.
+- `incident-service` waits for healthy RabbitMQ in Compose.
+- If publishing fails, return a controlled `503` and remove the newly created in-memory incident.
+- The client never waits for notification processing.
+
+Using a RabbitMQ confirm channel lets the service know the broker accepted the message before returning `201`.
+
+Commit:
+
+```text
+feat: enqueue notification jobs for new incidents
+```
+
+## Gate 4: End-to-end verification
+
+Normal case:
+
+1. Start the complete Compose system.
+2. Submit `POST /incidents`.
+3. Confirm `201 Created`.
+4. Observe the producer’s enqueue log.
+5. Observe the worker’s received and completed logs.
+6. Confirm the queue returns to zero messages.
+
+Worker-down case:
+
+1. Stop the worker.
+2. Create an incident.
+3. Confirm RabbitMQ holds the message.
+4. Restart the worker.
+5. Confirm it processes and acknowledges the queued message.
+
+We’ll also regression-test routing, incident lookup, ambassadors, and dispatch behavior.
+
+## Gate 5: Architecture and disclosure
+
+- Add RabbitMQ and the worker to `docs/SERVICES.md`.
+- Update the complete Mermaid diagram.
+- Add AI markers to modified code.
+- Update the appropriate `AI-DISCLOSURE.md`.
+- Save the raw session JSONL.
+
+Suggested documentation commit:
+
+```text
+docs: document Sprint 4 notification queue architecture
+```
+
+We should pause after each gate so you can inspect the diff and behavior before we continue. The first implementation action will be establishing the correct Sprint 4 branch, then completing only Gate 1.
+`````
+
+#### 22. User prompt
+
+`````text
+this makes. start with a design contract doc and then propose the code for gate 1
+`````
+
+#### 23. Assistant response
+
+`````text
+I’ll create a concise Sprint 4 Task 1 design contract first. Before writing it, I’m checking the project’s current branches and documentation conventions so the file lands on the correct line of work and remains easy to review.
+`````
+
+#### 24. Assistant response
+
+`````text
+The current checkout is an old Sprint 3 disclosure branch, while the local `origin/main` reference contains the merged Sprint 3 system. I’m refreshing the remote reference before creating `sprint-4-task-1-rabbitmq`; this avoids placing the design contract on a stale branch.
+`````
+
+#### 25. Assistant response
+
+`````text
+The branch is now based on the latest merged `origin/main`. I’m writing the contract as a decision record—not implementation documentation—so it clearly separates agreed behavior, delivery guarantees, non-goals, and review gates before we touch Compose.
+`````
+
+#### 26. Assistant response
+
+`````text
+The contract is drafted and passes the repository’s whitespace checks. I’m checking the course’s exact Unit 14 RabbitMQ Compose setup now so the Gate 1 proposal matches the taught health-check pattern rather than inventing a different broker configuration.
+`````
+
+#### 27. Assistant response
+
+`````text
+The design contract is drafted at [docs/SPRINT-4-ASYNC-DESIGN.md](/Users/austinfairbanks/school/cs426/426-project--bay-blues-/docs/SPRINT-4-ASYNC-DESIGN.md). It is uncommitted and marked “pending team review.” The new branch `sprint-4-task-1-rabbitmq` starts from the latest merged `origin/main`.
+
+No Gate 1 code has been applied yet.
+
+## Gate 1 proposed code
+
+Add this RabbitMQ service to [docker-compose.yml](/Users/austinfairbanks/school/cs426/426-project--bay-blues-/docker-compose.yml):
+
+```yaml
+  # AI: Sprint 4 RabbitMQ broker stores durable incident-notification work.
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_USER:-blue-light-app}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD:-blue-light-local-only}"
+    ports:
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test:
+        - CMD
+        - rabbitmq-diagnostics
+        - -q
+        - ping
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+```
+
+Add the named volume at the bottom:
+
+```yaml
+volumes:
+  rabbitmq-data:
+```
+
+Add these documented local defaults to [.env.example](/Users/austinfairbanks/school/cs426/426-project--bay-blues-/.env.example):
+
+```dotenv
+# AI: Sprint 4 local RabbitMQ configuration; replace for non-local environments.
+RABBITMQ_USER=blue-light-app
+RABBITMQ_PASSWORD=blue-light-local-only
+RABBITMQ_AMQP_PORT=5672
+RABBITMQ_MANAGEMENT_PORT=15672
+```
+
+The values are explicitly local development defaults, not production credentials.
+
+## Why these settings
+
+- `rabbitmq:3-management` matches Unit 14.
+- Port `5672` is AMQP; `15672` is the inspection UI.
+- The named volume preserves broker data across container recreation.
+- A fixed hostname keeps RabbitMQ’s persisted node identity stable.
+- `rabbitmq-diagnostics -q ping` is the course-prescribed readiness check.
+- No existing service depends on RabbitMQ yet; those dependencies belong in the consumer and producer gates.
+
+## Gate 1 review commands
+
+```bash
+docker compose config --quiet
+docker compose up -d rabbitmq
+docker compose ps rabbitmq
+docker compose exec rabbitmq rabbitmq-diagnostics -q ping
+curl -fsS http://localhost:15672 >/dev/null
+```
+
+Expected result: the container reports `healthy`, diagnostics prints `Ping succeeded`, and the management interface responds.
+`````
+
+#### 28. User prompt
+
+`````text
+Good makes sense - implement
+`````
+
+#### 29. Assistant response
+
+`````text
+I’m implementing only Gate 1: RabbitMQ infrastructure, local configuration defaults, and its named volume. I’ll then validate the Compose model and start just the broker for its health check; producer and worker code remain untouched.
+`````
+
+#### 30. Assistant response
+
+`````text
+Compose validation caught a placement error: the top-level `volumes` block landed between existing services, which made the remaining services parse as volume properties. I’m moving that block to the true end of the file before starting anything.
+`````
+
+#### 31. Assistant response
+
+`````text
+The Compose model now validates and includes RabbitMQ without changing existing service definitions. I’m starting only the broker and checking Docker health plus the management endpoint.
+`````
+
+#### 32. Assistant response
+
+`````text
+The implementation is valid, but the first runtime check is blocked by the SSH session’s locked macOS keychain while Docker tries to pull a public image. I’ll retry with an isolated, credential-free Docker configuration for this public pull, avoiding any keychain access or credential changes.
+`````
+
+#### 33. Assistant response
+
+`````text
+Compose still delegated the image pull through the locked credential helper despite the isolated config. I’m narrowing the check to a direct anonymous `docker pull`; if that also fails, I’ll stop at validated configuration and report the environment-specific runtime blocker rather than altering your keychain.
+`````
+
+#### 34. Assistant response
+
+`````text
+Gate 1 is implemented and ready for review, but not committed.
+
+Changed:
+
+- Added the accepted [design contract](/Users/austinfairbanks/school/cs426/426-project--bay-blues-/docs/SPRINT-4-ASYNC-DESIGN.md).
+- Added RabbitMQ, management ports, health check, and named volume to [docker-compose.yml](/Users/austinfairbanks/school/cs426/426-project--bay-blues-/docker-compose.yml).
+- Added local RabbitMQ defaults to [.env.example](/Users/austinfairbanks/school/cs426/426-project--bay-blues-/.env.example).
+
+Validation passed:
+
+- `docker compose config --quiet`
+- RabbitMQ appears in the service list.
+- `rabbitmq-data` appears in the volume list.
+- `git diff --check`
+
+Runtime verification is pending because this SSH session’s macOS keychain is locked, preventing Docker from pulling `rabbitmq:3-management`. No container started and I did not alter the keychain.
+
+From an interactive Gantry terminal, the remaining check is:
+
+```bash
+docker compose up -d rabbitmq
+docker compose ps rabbitmq
+docker compose exec rabbitmq rabbitmq-diagnostics -q ping
+```
+
+Expected: RabbitMQ reports `healthy` and diagnostics prints `Ping succeeded`.
+`````
+
+#### 35. User prompt
+
+`````text
+review and commit as the first commit
+`````
+
+#### 36. Assistant response
+
+`````text
+I’m doing a true pre-commit review across the contract and Gate 1 diff. I’ll fix any contract/code mismatch, rerun static validation, stage exactly these three files, and create the first Sprint 4 commit.
+`````
+
+#### 37. Assistant response
+
+`````text
+Review result: no blocking findings. I corrected one contract mismatch—the broker-only gate now verifies the named data volume rather than claiming the queue already exists, since the consumer will declare that queue in Gate 2. Compose structure, course health-check syntax, local configuration, AI markers, and persistence wiring are consistent. Runtime remains the one unverified item because the public image cannot be pulled through the locked SSH keychain.
+`````
+
+#### 38. Assistant response
+
+`````text
+Reviewed and committed as the first Sprint 4 commit:
+
+```text
+430f642 Add RabbitMQ broker design and infrastructure
+```
+
+Review found no blocking issues. I corrected the contract so Gate 1 verifies broker persistence rather than claiming the queue exists before Gate 2 declares it.
+
+Validated:
+
+- Compose configuration parses successfully.
+- RabbitMQ service and named volume resolve correctly.
+- No whitespace errors.
+- Working tree is clean.
+- Branch is one commit ahead of `origin/main`.
+
+Runtime health verification remains pending because Docker cannot pull the image through the locked SSH keychain. The commit has not been pushed.
+`````
+
+#### 39. User prompt
+
+`````text
+now propose code for gate 2
+`````
+
+#### 40. Assistant response
+
+`````text
+Gate 2 adds one standalone consumer service. It declares the durable queue, waits for jobs, simulates notification processing, and acknowledges each valid message afterward.
+
+No files have been changed yet.
+
+## Proposed files
+
+```text
+emergency-notification-worker/
+├── .dockerignore
+├── Dockerfile
+├── package.json
+├── package-lock.json
+└── src/
+    └── index.js
+```
+
+## Worker implementation
+
+Proposed `src/index.js`:
+
+```js
+// AI: This RabbitMQ notification worker was generated with AI assistance.
+import os from "node:os";
+import amqp from "amqplib";
+import express from "express";
+
+const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
+  const rawValue = process.env[name];
+
+  if (rawValue === undefined) {
+    return defaultValue;
+  }
+
+  if (!/^\d+$/.test(rawValue)) {
+    throw new Error(
+      `${name} must be an integer from ${minimum} through ${maximum}`,
+    );
+  }
+
+  const value = Number(rawValue);
+
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    throw new Error(
+      `${name} must be an integer from ${minimum} through ${maximum}`,
+    );
+  }
+
+  return value;
+};
+
+const requireEnvironmentValue = (name) => {
+  const value = process.env[name];
+
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`${name} is required`);
+  }
+
+  return value;
+};
+
+const port = readBoundedInteger("PORT", 3000, 1, 65535);
+const rabbitMqPort = readBoundedInteger("RABBITMQ_PORT", 5672, 1, 65535);
+const processingDelayMs = readBoundedInteger(
+  "NOTIFICATION_PROCESSING_MS",
+  500,
+  0,
+  30000,
+);
+
+const rabbitMqHost = process.env.RABBITMQ_HOST ?? "rabbitmq";
+const rabbitMqUser = requireEnvironmentValue("RABBITMQ_USER");
+const rabbitMqPassword = requireEnvironmentValue("RABBITMQ_PASSWORD");
+const queueName =
+  process.env.NOTIFICATION_QUEUE ?? "incident-notification-jobs";
+const workerId = os.hostname();
+
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const isNotificationJob = (job) =>
+  job !== null &&
+  typeof job === "object" &&
+  !Array.isArray(job) &&
+  job.schemaVersion === 1 &&
+  job.type === "incident.notification.requested" &&
+  typeof job.jobId === "string" &&
+  uuidPattern.test(job.jobId) &&
+  typeof job.incidentId === "string" &&
+  uuidPattern.test(job.incidentId) &&
+  typeof job.emergencyType === "string" &&
+  typeof job.severity === "string" &&
+  typeof job.reportedAt === "string";
+
+const delay = (milliseconds) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+
+const log = (level, event, fields = {}) => {
+  console.log(
+    JSON.stringify({
+      level,
+      event,
+      workerId,
+      ...fields,
+    }),
+  );
+};
+
+const app = express();
+app.disable("x-powered-by");
+
+app.get("/health", (_request, response) => {
+  response.status(200).json({ status: "ok" });
+});
+
+app.use((_request, response) => {
+  response.status(404).json({
+    error: {
+      code: "ROUTE_NOT_FOUND",
+      message: "No route was found for the supplied method and path",
+    },
+  });
+});
+
+const start = async () => {
+  const connection = await amqp.connect({
+    protocol: "amqp",
+    hostname: rabbitMqHost,
+    port: rabbitMqPort,
+    username: rabbitMqUser,
+    password: rabbitMqPassword,
+    heartbeat: 10,
+  });
+
+  connection.on("error", (error) => {
+    log("error", "rabbitmq_connection_error", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+
+  connection.on("close", () => {
+    log("error", "rabbitmq_connection_closed");
+    process.exit(1);
+  });
+
+  const channel = await connection.createChannel();
+
+  await channel.assertQueue(queueName, {
+    durable: true,
+  });
+
+  await channel.prefetch(1);
+
+  await channel.consume(
+    queueName,
+    async (message) => {
+      if (message === null) {
+        return;
+      }
+
+      let job;
+
+      try {
+        job = JSON.parse(message.content.toString("utf8"));
+      } catch {
+        log("error", "incident_notification_rejected", {
+          reason: "invalid_json",
+        });
+        channel.nack(message, false, false);
+        return;
+      }
+
+      if (!isNotificationJob(job)) {
+        log("error", "incident_notification_rejected", {
+          reason: "invalid_schema",
+        });
+        channel.nack(message, false, false);
+        return;
+      }
+
+      try {
+        log("info", "incident_notification_received", {
+          jobId: job.jobId,
+          incidentId: job.incidentId,
+          redelivered: message.fields.redelivered,
+        });
+
+        await delay(processingDelayMs);
+
+        log("info", "incident_notification_completed", {
+          jobId: job.jobId,
+          incidentId: job.incidentId,
+          emergencyType: job.emergencyType,
+          severity: job.severity,
+        });
+
+        channel.ack(message);
+      } catch (error) {
+        log("error", "incident_notification_failed", {
+          jobId: job.jobId,
+          incidentId: job.incidentId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+
+        channel.nack(message, false, true);
+      }
+    },
+    { noAck: false },
+  );
+
+  app.listen(port, () => {
+    log("info", "notification_worker_ready", {
+      port,
+      queueName,
+    });
+  });
+};
+
+start().catch((error) => {
+  log("error", "notification_worker_start_failed", {
+    error: error instanceof Error ? error.message : String(error),
+  });
+  process.exit(1);
+});
+
+// AI: End AI-assisted notification worker.
+```
+
+The health server starts only after RabbitMQ is connected, the queue is declared, and consumption is registered. Therefore, a healthy container means the worker is actually ready—not merely that Node started.
+
+## Package definition
+
+```json
+{
+  "name": "emergency-notification-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RabbitMQ notification worker for the Blue Light simulation",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.4",
+    "express": "^5.2.1"
+  }
+}
+```
+
+`package-lock.json` would be generated with npm and committed.
+
+## Dockerfile
+
+```dockerfile
+# AI: This worker container definition was generated with AI assistance.
+FROM node:24
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY src/ ./src/
+
+EXPOSE 3000
+
+CMD ["npm", "start"]
+```
+
+## Compose addition
+
+```yaml
+  # AI: Sprint 4 standalone worker consumes one incident-notification job at a time.
+  emergency-notification-worker:
+    build:
+      context: ./emergency-notification-worker
+    ports:
+      - "${NOTIFICATION_WORKER_PORT:-3005}:3000"
+    environment:
+      PORT: "3000"
+      RABBITMQ_HOST: "rabbitmq"
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: "${RABBITMQ_USER:-blue-light-app}"
+      RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD:-blue-light-local-only}"
+      NOTIFICATION_QUEUE: "${NOTIFICATION_QUEUE:-incident-notification-jobs}"
+      NOTIFICATION_PROCESSING_MS: "${NOTIFICATION_PROCESSING_MS:-500}"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://localhost:3000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 10s
+```
+
+Port `3005` is exposed only so the required health endpoint can be checked from the devcontainer. There is no client-facing notification API.
+
+## Environment additions
+
+```dotenv
+NOTIFICATION_WORKER_PORT=3005
+NOTIFICATION_QUEUE=incident-notification-jobs
+NOTIFICATION_PROCESSING_MS=500
+```
+
+## Gate 2 review
+
+```bash
+docker compose config --quiet
+docker compose up --build -d rabbitmq emergency-notification-worker
+docker compose ps rabbitmq emergency-notification-worker
+curl -fsS http://localhost:3005/health | jq
+docker compose logs emergency-notification-worker
+```
+
+Expected:
+
+```json
+{"status":"ok"}
+```
+
+Worker logs should contain `notification_worker_ready`, and RabbitMQ should show one consumer attached to `incident-notification-jobs`. No messages will be processed until Gate 3 adds the producer.
+`````
+
+#### 41. User prompt
+
+`````text
+Looks good to me - implement review and commit
+`````
+
+#### 42. Assistant response
+
+`````text
+I’ll implement Gate 2 on top of commit `430f642`, generate the npm lockfile, then review the complete staged diff and run the checks available in this environment. I’ll make one defensive refinement during implementation: reject empty queue/host configuration so RabbitMQ cannot silently create an unintended server-named queue.
+`````
+
+#### 43. Assistant response
+
+`````text
+The worker and Compose wiring are now in place. I’m generating its committed lockfile next, then I’ll run syntax, dependency, Compose, and staged-diff review before committing.
+`````
+
+#### 44. Assistant response
+
+`````text
+The first static-check command used repository-relative paths while already inside the worker directory, so it checked nonexistent doubled paths; that is a check-command mistake, not a code failure. I’m rerunning with the correct local paths and using the successful install audit as the dependency-security result.
+`````
+
+#### 45. Assistant response
+
+`````text
+Static review is clean: the worker parses, dependencies resolve with zero install vulnerabilities, Compose includes the worker, and its dependency is correctly gated on RabbitMQ health. I’m attempting the independent worker image build now; the full runtime health check still requires the RabbitMQ image that the locked keychain previously blocked.
+`````
+
+#### 46. Assistant response
+
+`````text
+The staged review found two formatting-only issues: an extra blank line at the end of `.dockerignore` and `Dockerfile`. I’m removing those before the final review and commit.
+`````
+
+#### 47. Assistant response
+
+`````text
+Final review found no blocking code issues. The worker uses the required standalone-service pattern, declares the durable queue, limits delivery with `prefetch(1)`, rejects malformed jobs without requeue, acknowledges only after processing, exposes the exact health response, and waits on RabbitMQ health in Compose. The container build reached Docker’s base-image lookup but was blocked by the same locked SSH keychain; JavaScript, lockfile, dependency tree, and Compose validation all pass.
+`````
+
+#### 48. Assistant response
+
+`````text
+Gate 2 is implemented, reviewed, and committed:
+
+```text
+bc28562 Add emergency notification worker
+```
+
+Added:
+
+- Standalone [emergency-notification-worker](/Users/austinfairbanks/school/cs426/426-project--bay-blues-/emergency-notification-worker/src/index.js)
+- Locked npm dependencies
+- Worker Dockerfile and `.dockerignore`
+- Compose service with RabbitMQ healthy dependency
+- Exact `GET /health` response
+- Queue, processing-delay, and port configuration
+
+Validation passed:
+
+- JavaScript syntax
+- Package and lockfile parsing
+- Complete dependency tree
+- npm install audit: zero vulnerabilities
+- Compose configuration
+- Whitespace review
+- Structured startup-failure behavior
+
+The Docker build remains blocked at base-image metadata lookup by the locked SSH keychain. The working tree is clean, and the branch is two commits ahead of `origin/main`.
+`````
+
+#### 49. User prompt
+
+`````text
+ok now give me a proposal for gate 3
+`````
+
+#### 50. Assistant response
+
+`````text
+Gate 3 makes `incident-service` the producer. It will publish one confirmed, persistent notification job for each valid `POST /incidents`, then store the incident and return the existing `201`.
+
+No files have been changed yet.
+
+## 1. New publisher module
+
+Add `incident-service/src/notification-publisher.js`:
+
+```js
+// AI: This RabbitMQ notification publisher was generated with AI assistance.
+import { randomUUID } from "node:crypto";
+import amqp from "amqplib";
+
+const log = (level, event, fields = {}) => {
+  const entry = JSON.stringify({
+    level,
+    event,
+    ...fields,
+  });
+
+  if (level === "error") {
+    console.error(entry);
+    return;
+  }
+
+  console.log(entry);
+};
+
+const confirmPublish = (channel, queueName, job) =>
+  new Promise((resolve, reject) => {
+    try {
+      channel.sendToQueue(
+        queueName,
+        Buffer.from(JSON.stringify(job)),
+        {
+          persistent: true,
+          contentType: "application/json",
+          contentEncoding: "utf-8",
+          messageId: job.jobId,
+          type: job.type,
+          timestamp: Date.now(),
+        },
+        (error) => {
+          if (error !== null && error !== undefined) {
+            reject(error);
+            return;
+          }
+
+          resolve();
+        },
+      );
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+const createNotificationPublisher = async ({
+  hostname,
+  port,
+  username,
+  password,
+  queueName,
+}) => {
+  const connection = await amqp.connect({
+    protocol: "amqp",
+    hostname,
+    port,
+    username,
+    password,
+    heartbeat: 10,
+  });
+
+  connection.on("error", (error) => {
+    log("error", "rabbitmq_connection_error", {
+      service: "incident-service",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+
+  connection.on("close", () => {
+    log("error", "rabbitmq_connection_closed", {
+      service: "incident-service",
+    });
+  });
+
+  const channel = await connection.createConfirmChannel();
+
+  await channel.assertQueue(queueName, {
+    durable: true,
+  });
+
+  log("info", "notification_publisher_ready", {
+    queueName,
+  });
+
+  const publishIncidentNotification = async (incident) => {
+    const job = {
+      schemaVersion: 1,
+      jobId: randomUUID(),
+      type: "incident.notification.requested",
+      incidentId: incident.incidentId,
+      emergencyType: incident.emergencyType,
+      severity: incident.severity,
+      reportedAt: incident.reportedAt,
+    };
+
+    try {
+      await confirmPublish(channel, queueName, job);
+    } catch (error) {
+      log("error", "incident_notification_enqueue_failed", {
+        jobId: job.jobId,
+        incidentId: job.incidentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      throw error;
+    }
+
+    log("info", "incident_notification_enqueued", {
+      jobId: job.jobId,
+      incidentId: job.incidentId,
+      queueName,
+    });
+
+    return job;
+  };
+
+  return { publishIncidentNotification };
+};
+
+export { createNotificationPublisher };
+// AI: End AI-assisted notification publisher.
+```
+
+A confirm channel is shared across requests. Each publish has its own callback, so concurrent incident requests do not wait on unrelated messages.
+
+## 2. Incident-service configuration
+
+Add to `incident-service/src/index.js`:
+
+```js
+import { createNotificationPublisher } from "./notification-publisher.js";
+```
+
+Add a string configuration helper:
+
+```js
+const readEnvironmentValue = (name, defaultValue) => {
+  const value = process.env[name] ?? defaultValue;
+
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`${name} must be a non-empty string`);
+  }
+
+  return value;
+};
+```
+
+Read the RabbitMQ configuration:
+
+```js
+const rabbitMqHost = readEnvironmentValue("RABBITMQ_HOST", "rabbitmq");
+const rabbitMqPort = readBoundedInteger("RABBITMQ_PORT", 5672, 1, 65535);
+const rabbitMqUser = readEnvironmentValue("RABBITMQ_USER");
+const rabbitMqPassword = readEnvironmentValue("RABBITMQ_PASSWORD");
+const notificationQueue = readEnvironmentValue(
+  "NOTIFICATION_QUEUE",
+  "incident-notification-jobs",
+);
+
+let publishIncidentNotification;
+```
+
+## 3. Make incident creation asynchronous
+
+Replace only the current `POST /incidents` handler:
+
+```js
+const waitForIncidentLatency = () =>
+  new Promise((resolve) => {
+    setTimeout(resolve, incidentLatencyMs);
+  });
+
+app.post("/incidents", async (request, response, next) => {
+  const reportedAt = new Date().toISOString();
+  const body = request.body === undefined ? {} : request.body;
+  const validationErrors = validateIncidentRequest(body);
+
+  try {
+    await waitForIncidentLatency();
+
+    if (validationErrors.length > 0) {
+      response.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Incident request is invalid",
+          details: validationErrors,
+        },
+      });
+      return;
+    }
+
+    const incident = createIncident(body, reportedAt);
+
+    try {
+      await publishIncidentNotification(incident);
+    } catch {
+      response.status(503).json({
+        error: {
+          code: "NOTIFICATION_QUEUE_UNAVAILABLE",
+          message:
+            "The incident could not be accepted because durable notification processing is unavailable",
+        },
+      });
+      return;
+    }
+
+    incidents.set(incident.incidentId, incident);
+
+    response
+      .location(`/incidents/${incident.incidentId}`)
+      .status(201)
+      .json(incident);
+  } catch (error) {
+    next(error);
+  }
+});
+```
+
+Invalid requests never publish. Successful incidents are not added to the map until RabbitMQ confirms the job.
+
+The existing latency helper remains for `GET /incidents/:incidentId`.
+
+## 4. Connect before listening
+
+Replace the direct `app.listen(...)` call with:
+
+```js
+const start = async () => {
+  const publisher = await createNotificationPublisher({
+    hostname: rabbitMqHost,
+    port: rabbitMqPort,
+    username: rabbitMqUser,
+    password: rabbitMqPassword,
+    queueName: notificationQueue,
+  });
+
+  publishIncidentNotification = publisher.publishIncidentNotification;
+
+  app.listen(port, () => {
+    console.log(
+      JSON.stringify({
+        level: "info",
+        message: "Incident service started",
+        port,
+      }),
+    );
+  });
+};
+
+start().catch((error) => {
+  console.error(
+    JSON.stringify({
+      level: "error",
+      event: "incident_service_start_failed",
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
+  process.exit(1);
+});
+```
+
+The HTTP server will not accept traffic until its publisher is connected and the durable queue exists.
+
+## 5. Dependency addition
+
+Add `amqplib` to `incident-service/package.json`:
+
+```json
+"dependencies": {
+  "amqplib": "^0.10.4",
+  "express": "^5.2.1"
+}
+```
+
+Regenerate and commit `incident-service/package-lock.json`.
+
+## 6. Compose wiring
+
+Extend `incident-service`:
+
+```yaml
+  incident-service:
+    build:
+      context: ./incident-service
+    environment:
+      PORT: "3000"
+      INCIDENT_LATENCY_MS: "${INCIDENT_LATENCY_MS:-200}"
+      RABBITMQ_HOST: "rabbitmq"
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: "${RABBITMQ_USER:-blue-light-app}"
+      RABBITMQ_PASSWORD: "${RABBITMQ_PASSWORD:-blue-light-local-only}"
+      NOTIFICATION_QUEUE: "${NOTIFICATION_QUEUE:-incident-notification-jobs}"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+```
+
+The startup chain becomes:
+
+```text
+RabbitMQ healthy
+→ incident-service publisher ready
+→ incident-service healthy
+→ incident-ambassador starts
+```
+
+## Gate 3 review
+
+Normal request:
+
+```bash
+curl -fsS -X POST http://localhost:3003/incidents \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "emergencyType": "medical",
+    "severity": "critical",
+    "location": {
+      "latitude": 42.3868,
+      "longitude": -72.5301,
+      "venue": "Mullins Center"
+    }
+  }' | jq
+```
+
+Expected logs:
+
+```text
+incident-service: incident_notification_enqueued
+worker: incident_notification_received
+worker: incident_notification_completed
+```
+
+Negative checks:
+
+- Invalid `POST` returns `400` and publishes nothing.
+- `GET /health` publishes nothing.
+- `GET /incidents/:id` publishes nothing.
+- With the worker stopped but RabbitMQ running, `POST` still returns `201` and the message waits in the queue.
+- If RabbitMQ cannot confirm the publish, `POST` returns `503` and the incident is not stored.
+
+Suggested third commit:
+
+```text
+Enqueue notification jobs for new incidents
+```
+
+That would give you the three substantive technical commits required for full individual commit credit.
+`````
+
+#### 51. User prompt
+
+`````text
+Looks good ot me, implement review and commit
+`````
+
+#### 52. Assistant response
+
+`````text
+I’m implementing Gate 3 exactly as reviewed: a separate confirm-channel publisher, RabbitMQ configuration and healthy dependency for `incident-service`, and publishing only from valid incident creation. I’ll preserve the existing response shape and all GET behavior, then review and commit it as the third technical commit.
+`````
+
+#### 53. Assistant response
+
+`````text
+The producer code and startup dependency are applied. I’m updating the existing incident-service lockfile now, then I’ll test syntax, package integrity, Compose resolution, and the producer’s structured startup-failure path before reviewing the staged diff.
+`````
+
+#### 54. Assistant response
+
+`````text
+The implementation checks pass. During review I found one maintainability gap not shown in the proposal: `POST /incidents` now has a new `503` response and broker-confirmation behavior, but the existing incident API document would remain stale. I’m updating that service-local API contract before staging; the full system diagram still stays in the later documentation gate.
+`````
+
+#### 55. Assistant response
+
+`````text
+The staged review is clean and the service-local API contract now matches the new `201`/`503` behavior. The producer uses one long-lived confirm channel, publishes only after validation, and stores the incident only after confirmation. I’m making the final image-build attempt; if Docker hits the already-known keychain block, I’ll commit with that runtime limitation documented.
+`````
+
+#### 56. Assistant response
+
+`````text
+Final review result: no blocking code findings. JavaScript syntax, dependency resolution, npm audit, Compose validation, environment wiring, error semantics, and documentation all pass. Docker again stopped before executing the Dockerfile because the SSH session cannot access the credential keychain for `node:24` metadata; no build-specific failure was reached.
+`````
+
+#### 57. Assistant response
+
+`````text
+Gate 3 is implemented, reviewed, and committed:
+
+```text
+c425626 Enqueue notification jobs for new incidents
+```
+
+Implemented:
+
+- Long-lived RabbitMQ confirm-channel publisher
+- Persistent, schema-versioned notification jobs
+- Publishing only for valid `POST /incidents`
+- Incident storage only after broker confirmation
+- Controlled `503` response when publishing fails
+- RabbitMQ healthy startup dependency
+- Updated incident-service API contract
+- Locked and audited `amqplib` dependency
+
+Validation passed:
+
+- JavaScript syntax
+- Dependency tree and package-lock
+- npm audit: zero vulnerabilities
+- Compose configuration
+- Structured startup failure
+- Staged diff and whitespace review
+
+Docker remains blocked before build execution by the locked SSH keychain. The working tree is clean, and the branch is three commits ahead with three substantive technical commits.
+`````
+
+#### 58. User prompt
+
+`````text
+ok propose for gate 4
+`````
+
+#### 59. Assistant response
+
+`````text
+Gate 4 should add no production behavior. It should add a repeatable verification script that proves the producer, broker, and consumer work together—including queued work and redelivery.
+
+## Proposed artifact
+
+```text
+scripts/verify-sprint-4-async.sh
+```
+
+The script will use only tools already available in Gantry:
+
+- `docker compose`
+- `docker inspect`
+- `curl`
+- `jq`
+- `rg`
+- `rabbitmqctl` inside the broker container
+
+It will never run `docker compose down -v`, purge the queue, or delete broker data.
+
+## Verification sequence
+
+### 1. Start the async subsystem
+
+```bash
+docker compose up --build -d \
+  rabbitmq \
+  emergency-notification-worker \
+  incident-service \
+  incident-ambassador
+```
+
+The script waits until all four containers are running and every configured health check reports healthy.
+
+### 2. Normal producer-to-consumer path
+
+Submit one valid incident:
+
+```bash
+curl -fsS -X POST http://localhost:3003/incidents \
+  -H 'Content-Type: application/json' \
+  --data '{
+    "emergencyType": "medical",
+    "severity": "critical",
+    "location": {
+      "latitude": 42.3868,
+      "longitude": -72.5301,
+      "venue": "Mullins Center"
+    }
+  }'
+```
+
+Verify:
+
+- Response is `201`.
+- Response contains an `incidentId`.
+- Producer logs `incident_notification_enqueued`.
+- Worker logs `incident_notification_received`.
+- Worker logs `incident_notification_completed`.
+- RabbitMQ reports zero ready and zero unacknowledged messages afterward.
+
+Queue inspection:
+
+```bash
+docker compose exec -T rabbitmq \
+  rabbitmqctl -q list_queues \
+  name messages_ready messages_unacknowledged
+```
+
+### 3. Negative-trigger checks
+
+Record the producer’s enqueue-log count, then send:
+
+- Invalid `POST /incidents`
+- `GET /health`
+- `GET /incidents/:incidentId`
+
+Verify:
+
+- Invalid POST returns `400`.
+- GET requests succeed normally.
+- Enqueue-log count does not change.
+- Queue depth remains zero.
+
+This proves only valid incident creation triggers asynchronous work.
+
+### 4. Work retained while the worker is down
+
+```bash
+docker compose stop emergency-notification-worker
+```
+
+Create another valid incident and verify:
+
+- Request still returns `201`.
+- RabbitMQ reports one ready message.
+- No worker is required for request acceptance.
+
+Restart the worker:
+
+```bash
+docker compose start emergency-notification-worker
+```
+
+Verify the worker processes the waiting job and queue depth returns to zero.
+
+### 5. True unacknowledged-message redelivery
+
+Recreate the worker with a long processing delay:
+
+```bash
+NOTIFICATION_PROCESSING_MS=10000 \
+  docker compose up -d --force-recreate emergency-notification-worker
+```
+
+Create another incident and wait until RabbitMQ reports:
+
+```text
+messages_ready: 0
+messages_unacknowledged: 1
+```
+
+Kill the worker before acknowledgment:
+
+```bash
+docker compose kill -s SIGKILL emergency-notification-worker
+```
+
+Verify RabbitMQ returns the message to ready state:
+
+```text
+messages_ready: 1
+messages_unacknowledged: 0
+```
+
+Restore the normal worker:
+
+```bash
+NOTIFICATION_PROCESSING_MS=500 \
+  docker compose up -d --force-recreate emergency-notification-worker
+```
+
+Verify:
+
+- Worker log contains the same `incidentId`.
+- Worker log contains `"redelivered":true`.
+- Worker completes and acknowledges the job.
+- Queue returns to zero.
+
+## Script behavior
+
+The script will:
+
+- Fail immediately with a clear message when an assertion fails.
+- Refuse to start if the notification queue already contains work, avoiding interference with existing messages.
+- Print each verification phase.
+- Leave RabbitMQ, the worker, incident service, and ambassador running.
+- Restore the worker to the normal 500 ms delay after the redelivery test.
+- Print a final summary such as:
+
+```text
+PASS normal enqueue and consume
+PASS invalid and read-only requests do not enqueue
+PASS work remains queued while worker is stopped
+PASS unacknowledged work is redelivered after worker failure
+PASS notification queue drained successfully
+```
+
+Suggested fourth commit:
+
+```text
+Add Sprint 4 async path verification
+```
+
+The remaining limitation is environmental: running this gate requires an interactive Docker session capable of pulling `rabbitmq:3-management` and `node:24`; the current SSH keychain blocks those image lookups.
+`````
+
+#### 60. User prompt
+
+`````text
+Good with doing that - implement, review and push
+`````
+
+#### 61. Assistant response
+
+`````text
+I’ll add the reusable Gate 4 verifier, review its safety and shell syntax, attempt the async runtime checks once more, then commit and push the four-commit Sprint 4 branch. The script will only stop/kill and restore the notification worker; it will not purge queues or remove volumes.
+`````
+
+#### 62. Assistant response
+
+`````text
+The verifier is implemented and passes Bash syntax, Compose, and whitespace checks. I’ve reviewed its safety guards: it refuses a nonempty starting queue, never purges data, restores the worker after failures, and scopes SIGKILL to the worker only. I’m now attempting the full run before committing.
+`````
+
+#### 63. Assistant response
+
+`````text
+The runtime stopped at the known keychain barrier before any containers changed. A final safety review found one improvement: the original ordering started the worker before checking for pre-existing queued work, which could consume someone else’s backlog. I’m changing the script to start RabbitMQ alone, inspect the persisted queue first, and only then start the producer and consumer.
+`````
+
+#### 64. Assistant response
+
+`````text
+One more concurrency edge surfaced in the staged review: an already-running worker from a previous session could consume persisted messages while the script inspects the queue. I’m adding a state-preserving guard that temporarily stops an existing worker before inspection and restores it automatically if the check aborts.
+`````
+
+#### 65. Assistant response
+
+`````text
+Final review is clean. The verifier now preserves prior worker state, refuses existing backlog before starting a consumer, restores the worker after controlled failures, and contains no queue purge, volume deletion, or broad container shutdown. Static validation passes; the only failed check is the runtime image pull blocked by the SSH keychain.
+`````
+
+#### 66. Assistant response
+
+`````text
+Gate 4 is committed as `ee636b8`. I’m pushing `sprint-4-task-1-rabbitmq` now; this publishes all four reviewed commits without merging them into `main`.
+`````
+
+#### 67. Assistant response
+
+`````text
+Gate 4 is implemented, reviewed, committed, and pushed.
+
+Commit:
+
+```text
+ee636b8 Add Sprint 4 async path verification
+```
+
+Added executable [verify-sprint-4-async.sh](/Users/austinfairbanks/school/cs426/426-project--bay-blues-/scripts/verify-sprint-4-async.sh), covering:
+
+- Normal enqueue, consume, and acknowledge
+- Invalid/GET requests producing no jobs
+- Queue retention while the worker is stopped
+- Unacknowledged-message redelivery after SIGKILL
+- Worker restoration and queue-drain verification
+- Protection against consuming pre-existing backlog
+
+Static review passed. Runtime still stops at Docker’s locked SSH keychain while pulling public images.
+
+The working tree is clean and synchronized with:
+
+```text
+origin/sprint-4-task-1-rabbitmq
+```
+
+[Open a pull request](https://github.com/Dos0n/426-project-bay-blues/pull/new/sprint-4-task-1-rabbitmq).
+`````
+
+#### 68. User prompt
+
+`````text
+Is there anything else left for this task?
+`````
+
+#### 69. Assistant response
+
+`````text
+I’m checking the pushed branch against the Task 1 rubric and repository disclosure/diagram rules so I can separate true Task 1 blockers from later Sprint 4 tasks.
+`````
+
+#### 70. Assistant response
+
+`````text
+The core Task 1 implementation is done, but I would not merge it yet. Four closure items remain:
+
+1. **Run the end-to-end verifier successfully**
+
+   ```bash
+   scripts/verify-sprint-4-async.sh
+   ```
+
+   This is currently blocked only by the locked Docker keychain. We still need runtime evidence of enqueue, consumption, acknowledgment, queued-worker recovery, and redelivery.
+
+2. **Update `docs/SERVICES.md`**
+
+   The repository’s own policy requires any new service or connection to update both the service list and complete Mermaid diagram. RabbitMQ and `emergency-notification-worker` are currently absent.
+
+3. **Complete AI disclosure**
+
+   Add this interaction verbatim to `AI-DISCLOSURE.md` and save the matching raw JSONL transcript under `ai/chats/`.
+
+4. **Open and merge the PR**
+
+   The branch is pushed, but no PR has been opened or merged.
+
+The remaining Sprint 4 requirements—standardizing health checks everywhere, scripted failure report, and complete Sprint 4 documentation—belong to later tasks, except the diagram should be updated before this branch merges. Core Task 1 code itself needs no additional feature work.
+`````
+
+#### 71. User prompt
+
+`````text
+Do verification for 1 and complete 2
+`````
+
+#### 72. Assistant response
+
+`````text
+I’ll run the committed verifier first. If Docker still hits the SSH keychain barrier, I’ll diagnose the client configuration without changing credentials. In parallel with that outcome, I’ll update the complete service list and Mermaid architecture to include the producer, RabbitMQ queue, and worker.
+`````
+
+#### 73. Assistant response
+
+`````text
+The verifier has progressed past the earlier immediate keychain error and is currently pulling the RabbitMQ image, but Docker has produced no additional output yet. I’m letting the bounded pull continue while monitoring it; I won’t alter or purge Docker state.
+`````
+
+#### 74. Assistant response
+
+`````text
+The Docker pull has remained silent for several minutes, so it is no longer a meaningful verification run. I’m stopping that bounded attempt and checking whether any RabbitMQ image or container was actually created before deciding the safest next step.
+`````
+
+#### 75. Assistant response
+
+`````text
+Diagnosis confirms the blocker: Docker is configured with `credsStore: desktop`, and no RabbitMQ image or container exists. I’ll make one safe anonymous-pull attempt using an isolated Docker config that explicitly disables credential storage and connects directly to the existing Colima socket; this does not read, modify, or unlock the keychain.
+`````
+
+#### 76. Assistant response
+
+`````text
+The credential-free pull worked and RabbitMQ is now available locally without touching the keychain. I’m checking/pulling the public Node base image the same way if needed, then I’ll rerun the verifier through the normal Compose configuration.
+`````
+
+#### 77. Assistant response
+
+`````text
+RabbitMQ is available. The Node image retry is progressing layer by layer after one transient Docker Hub TLS timeout; several layers are already complete. I’m continuing the bounded pull because this is now making concrete progress.
+`````
+
+#### 78. Assistant response
+
+`````text
+The verifier has created the network, persistent RabbitMQ volume, and broker container. It is currently waiting for RabbitMQ’s health check; the script will automatically emit `compose ps` and broker logs if the 90-second readiness bound is exceeded.
+`````
+
+#### 79. Assistant response
+
+`````text
+Runtime verification uncovered a real portability defect: RabbitMQ cannot read `/var/lib/rabbitmq/.erlang.cookie` from the named volume under Colima (`EACCES`), so the broker is unhealthy. I’m stopping the waiting verifier and inspecting the volume ownership read-only before changing Compose.
+`````
+
+#### 80. Assistant response
+
+`````text
+The failure is caused by RabbitMQ starting as root long enough to create a root-only cookie, then running Erlang as the unprivileged `rabbitmq` user. I’m fixing Compose to start the container explicitly as the image’s named `rabbitmq` user. Then I’ll remove only the unusable test volume created during this failed run—it contains no broker data—and rerun verification from a clean broker volume.
+`````
+
+#### 81. Assistant response
+
+`````text
+The permission fix is in place, but Compose encountered stale metadata for the previously removed broker container (`No such container`) before starting the new one. No service code ran. I’m clearing only that stale Compose container record/network state—preserving volumes—and will retry.
+`````
+
+#### 82. Assistant response
+
+`````text
+RabbitMQ still has not reached healthy after the user override, so I’m checking the container’s exact state again. The existing named volume warning suggests the failed recreation left an unlabeled volume that may still contain the bad cookie; if confirmed, I’ll remove that exact empty test volume once more and let Compose create it itself.
+`````
+
+#### 83. Assistant response
+
+`````text
+The direct Colima check confirms the fix worked: both the data directory and `.erlang.cookie` are now owned by RabbitMQ UID/GID `999:999`, with the required `0400` cookie mode. I’m starting the broker alone once more to verify health before rerunning the longer script.
+`````
+
+#### 84. Assistant response
+
+`````text
+The service diagram update is drafted. Verification is currently blocked by RabbitMQ’s first-boot feature-flag timeout—not by the producer or worker code—so I’m retrying the broker with its now-corrected volume ownership before changing versions or configuration.
+`````
+
+#### 85. Assistant response
+
+`````text
+The retry is progressing through the partially initialized feature flags instead of immediately failing. I’m giving this boot one short observation window; if it repeats the same timeout, I’ll replace only the empty test broker state and retest from a clean first boot.
+`````
+
+#### 86. Assistant response
+
+`````text
+RabbitMQ is now healthy; the second boot finished enabling the remaining feature flag. I’m running the full verifier now, including normal delivery, non-creation paths, queued delivery while the worker is down, and redelivery after an interrupted consumer.
+`````
+
+#### 87. Assistant response
+
+`````text
+The verifier exited before touching application behavior because the temporary Docker credential config also hid the locally installed Compose plugin. I’m inspecting the script’s Docker invocation and will rerun with the normal CLI configuration now that all required images are already local.
+`````
+
+#### 88. Assistant response
+
+`````text
+The failure exposed a real readiness bug: `rabbitmq-diagnostics ping` only proves the Erlang VM responds, so Compose marked the broker healthy while the Rabbit application was still booting. I’m tightening the health contract to `check_running` and allowing the diagnostic enough time on the constrained course VM.
+`````
+
+#### 89. Assistant response
+
+`````text
+The corrected healthcheck is behaving as intended: the verifier is waiting instead of falsely proceeding during broker boot. RabbitMQ’s startup is unusually slow in this 2 GB Colima VM, but the process remains active and within the verifier’s readiness window.
+`````
+
+#### 90. Assistant response
+
+`````text
+The readiness loop is still active because each Docker inspection itself is slow under this VM; there is no application failure output yet. I’m letting the bounded verifier reach its own pass/fail result rather than interrupting it mid-test.
+`````
+
+#### 91. Assistant response
+
+`````text
+The broker is advancing, but the VM is taking 30–40 seconds per individual boot step; the health probe itself is also expensive there. This is an environment-performance issue rather than a crash. I’m checking container resource pressure so I can avoid turning the verifier into an unbounded wait.
+`````
+
+#### 92. Assistant response
+
+`````text
+The broker completed successfully in 286 seconds, but the verifier’s 90-second cold-start budget expired just before that. I’m extending only the bounded health wait to six minutes—matching observed course-VM behavior—then rerunning against the now-healthy broker.
+`````
+
+#### 93. Assistant response
+
+`````text
+The verifier has passed broker readiness and is building the three scoped services. The remaining phases are behavioral checks; no new failure has appeared.
+`````
+
+#### 94. Assistant response
+
+`````text
+The Docker build is stalled inside existing `npm install` layers, likely on registry access from the VM; it has not emitted an error. I’m keeping the current run alive while checking whether those build processes are making progress.
+`````
+
+#### 95. Assistant response
+
+`````text
+The slowdown is explained: an unrelated CVAT stack is occupying most of the same 2 GB Colima VM and substantial CPU. I’m not stopping or modifying those user containers; the scoped verification remains running safely alongside them.
+`````
+
+#### 96. Assistant response
+
+`````text
+All three scoped images built successfully and their containers started healthy. The verifier is now inside queue inspection and request/worker behavior; RabbitMQ CLI calls are slow under the shared VM but remain bounded.
+`````
+
+#### 97. Assistant response
+
+`````text
+The first behavioral request found a verifier bug before it could judge the service: Bash rejects a local variable that shadows the script’s global `readonly` URL. I’m renaming that function-local parameter, then checking the accompanying 503 producer log before rerunning.
+`````
+
+#### 98. Assistant response
+
+`````text
+The 503 came from both AMQP clients timing out their 10-second heartbeats while the shared VM was CPU-starved. I’m making the heartbeat configurable with a safer 60-second default and forcing fresh scoped app containers at verifier start, so a prior closed channel cannot contaminate a rerun.
+`````
+
+#### 99. Assistant response
+
+`````text
+The clean rerun rebuilt from cache and recreated only the three scoped app containers. RabbitMQ remains healthy, and the clients are now using the 60-second heartbeat while service health checks settle.
+`````
+
+#### 100. Assistant response
+
+`````text
+All scoped HTTP containers are healthy. The run is now waiting on RabbitMQ’s queue-count CLI, which is the slowest operation in this saturated VM; the test has not failed or produced a new service error.
+`````
+
+#### 101. Assistant response
+
+`````text
+The Erlang-based `rabbitmqctl` queue query has now consumed several minutes while the management API is already available. I’m stopping this verifier run and replacing only its queue introspection with the broker’s HTTP management endpoint; the application path and assertions stay unchanged.
+`````
+
+#### 102. Assistant response
+
+`````text
+The management API is also starved by the shared VM, so it is not a useful replacement. I’m testing a lightweight AMQP queue check from the already-running Node service; if it responds promptly, the verifier can avoid RabbitMQ’s heavyweight Erlang CLI without weakening delivery/redelivery assertions.
+`````
+
+#### 103. Assistant response
+
+`````text
+The AMQP inspection succeeded and returned the expected empty queue with one consumer. I’m updating the verifier to use that protocol-native check, sequencing the producer before the consumer so backlog validation remains deterministic, and using the worker’s unique receipt log to establish the unacknowledged state before SIGKILL.
+`````
+
+#### 104. Assistant response
+
+`````text
+The optimized run is rebuilding from cache and has started the producer alone, as intended, so it can verify the pre-consumer queue is empty. The only remaining delay is shared-VM scheduling; the verifier is still progressing without errors.
+`````
+
+#### 105. Assistant response
+
+`````text
+The first two behavioral gates now pass: normal enqueue/consume/ack, and no enqueue for invalid or read-only requests. The queued-while-worker-stopped phase has also successfully observed retained work and restarted the consumer.
+`````
+
+#### 106. Assistant response
+
+`````text
+Full verification now passes all four phases, including true redelivery after SIGKILL, and the queue drains to zero. I’m doing the final review now: service diagram accuracy, Compose/rendered config, JavaScript checks/tests, and the exact diff before committing and pushing this completion.
+`````
+
+#### 107. Assistant response
+
+`````text
+Final review is clean: all modified JavaScript parses, the verifier script parses, Compose renders, all four scoped containers are healthy, and the full behavioral suite passed. I’m committing these verification-driven fixes plus the completed Sprint 4 service diagram, then pushing the branch.
+`````
+
+#### 108. Assistant response
+
+`````text
+Done—both requested items are verified, committed, and pushed.
+
+- Full async verification passed:
+  - Normal enqueue, consume, and acknowledgment
+  - Invalid/read-only requests do not enqueue
+  - Messages remain queued while worker is stopped
+  - Unacknowledged messages redeliver after `SIGKILL`
+  - Final queue drained successfully
+- Updated [SERVICES.md](/Users/austinfairbanks/school/cs426/426-project--bay-blues-/docs/SERVICES.md) with RabbitMQ, the worker, and the complete Sprint 4 architecture diagram.
+- Improved RabbitMQ readiness, Colima volume compatibility, heartbeat tolerance, and deterministic verification.
+- Pushed commit `0d43b33` to `sprint-4-task-1-rabbitmq`.
+- Worktree is clean.
+
+The only remaining course requirement for this task is the AI disclosure and raw JSONL chat record.
+`````
+
+#### 109. User prompt
+
+`````text
+Ok now launch a reviewer at each part of the rubric that pertains to this and my work. Make sure I earn full credit to the things that are in scope right now
+`````
+
+#### 110. Assistant response
+
+`````text
+I’m using the Cavecrew reviewer workflow because you explicitly asked for parallel reviewers. I’ll first map your branch against the exact Sprint 4 rubric, then assign one reviewer to each in-scope rubric area and reconcile their findings into fixes—not just a score estimate.
+`````
+
+#### 111. Assistant response
+
+`````text
+I’ve mapped six relevant scoring checks: observable async behavior (15), broker/normal-request trigger (10), Austin-owned health endpoint (10), Austin-owned Compose health/dependencies (10), full-system diagram (10), and technical commit attribution (20). I’m launching three reviewers now, each covering a distinct rubric slice; afterward I’ll send a second pass for the failure-scenario boundary and submission evidence.
+`````
+
+#### 112. Assistant response
+
+`````text
+While reviewers work, I found one likely strict-rubric issue: Austin’s existing `incident-service` health response includes an extra `service` field, whereas the rubric’s shown contract is exactly `{"status":"ok"}`. The new worker already matches exactly. I’m validating both live and will reconcile this with the health reviewer before editing.
+`````
+
+#### 113. Assistant response
+
+`````text
+The first review wave is taking longer than expected because the repository’s Docker environment is heavily loaded. I’ve redirected reviewers to conclude from static evidence and the successful verification already recorded, so they don’t duplicate the long runtime suite.
+`````
+
+#### 114. Assistant response
+
+`````text
+First-wave verdict: async criteria are a defensible 25/25, Austin’s individual health/Compose criteria are 20/20 via the new worker, diagram 10/10, and commit attribution 20/20. Two real submission risks surfaced: strict incident health payload and missing Sprint 4 AI disclosure/raw log. I’m launching the second wave for the failure-report criterion, team-wide health boundary, and final submission evidence before fixing anything.
+`````
+
+#### 115. Assistant response
+
+`````text
+The first-wave disclosure finding activates the repository’s mandatory AI-disclosure workflow. I’m reading that local skill now so any transcript capture and verbatim disclosure update follows the course-required format; I won’t fabricate or summarize the session record.
+`````
+
+#### 116. Assistant response
+
+`````text
+The project subdirectory doesn’t contain the disclosure skill; it lives at the course workspace root referenced by `AGENTS.md`. I’m loading that canonical copy and will use it from there.
+`````
+
+#### 117. Assistant response
+
+`````text
+The likely fixes now divide cleanly: strict Austin-owned health output and service-list labeling are in scope; team-wide Caddy health and the formal failure report may belong to other Sprint 4 tasks, so I’m waiting for the boundary reviewers before touching teammate-owned paths. The raw disclosure will be captured only after fixes are final so it reflects the actual work.
+`````
+
+#### 118. Assistant response
+
+`````text
+The two review waves agree on the scope boundary: Task 1 itself is 25/25; Austin’s worker health is 20/20; diagram and commits are full-credit. I’m fixing the avoidable in-scope risks now—exact incident health JSON, “planned” gateway labeling, grader-facing start/verify commands, and the mandatory Sprint 4 disclosure. I will not take over Task 2’s Caddy healthcheck or Task 3’s failure report on this branch.
+`````
+
+#### 119. Assistant response
+
+`````text
+All reviewer findings are now reconciled. I’m using the required save-chat script with the confirmed root-session JSONL; this is the disclosure skill’s mandated action, and it will create the raw Sprint 4 record inside the project’s `ai/chats/` directory.
+`````
+
+#### 120. Assistant response
+
+`````text
+The raw transcript is now saved as `ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl`. The disclosure skill also requires exact file references and both top/bottom markers on majority-AI files, so I’m normalizing those references and naming the strict JSON manifests in the Markdown disclosure before inserting the verbatim exchange transcript.
+`````
+
+#### 121. Assistant response
+
+`````text
+The transcript formatter hit a quoting error and the guarded rewrite produced an empty disclosure file. The committed version is intact in Git, so I’m restoring that exact file immediately, then I’ll use a checked formatter with `set -e` and validate nonempty output before any replacement.
+`````
+
+#### 122. Assistant response
+
+`````text
+The disclosure is recovered and complete: 119 relevant user/assistant messages were inserted verbatim from the raw JSONL, with orchestration-only environment blocks excluded from the readable Markdown while preserved in the raw file. I’m now validating markers, exact health behavior, Compose syntax, and the final diff.
+`````
+
+#### 123. Assistant response
+
+`````text
+Static checks are clean, but the live rebuild hit a Docker context deadline before building—another symptom of the unrelated CVAT load in the shared 2 GB VM. No container was changed. I’m retrying only `incident-service`; the code itself already parses and the previous async verification remains valid.
+`````
+
+#### 124. Assistant response
+
+`````text
+The live incident-service now returns exactly `{"status":"ok"}` and is healthy behind RabbitMQ. I’m launching one final reviewer over the post-fix diff to ensure the rubric fixes and disclosure mechanics did not introduce a regression before I commit.
+`````
+
+#### 125. Assistant response
+
+`````text
+The post-fix reviewer returned “No issues.” I’m refreshing the same raw transcript snapshot one final time and regenerating only the Sprint 4 transcript section from it, so the disclosure includes the review-driven fixes and recovery steps before staging.
+`````
+
+#### 126. Assistant response
+
+`````text
+The final integrity check only failed on byte-for-byte comparison because the live source session kept appending after the snapshot—expected for an active conversation. The saved snapshot itself parses completely as JSONL and has the correct root session ID; I’m rerunning the static gate without requiring an impossible live-file equality.
+`````
+
+#### 127. Assistant response
+
+`````text
+All gates now pass, and the final reviewer found no post-fix issues. I’m staging one review-fix/disclosure commit, switching the local remote to GitHub’s canonical repository URL flagged by the reviewer, and pushing the same Task 1 branch.
+`````
+
+#### 128. Assistant response
+
+`````text
+The review commit is pushed and the worktree is clean. I’m taking one final container-status snapshot so the handoff can distinguish verified Task 1 health from the still-unfinished full-stack Task 2 criterion.
+`````
+
+#### 129. Assistant response
+
+`````text
+Rubric review complete. Your current Task 1 work has a defensible **75/75 across every in-scope criterion**.
+
+| Criterion | Score |
+|---|---:|
+| Observable producer/consumer path | 15/15 |
+| RabbitMQ + normal-request trigger | 10/10 |
+| Complete system diagram | 10/10 |
+| Austin service `/health` | 10/10 |
+| Compose health/dependencies | 10/10 |
+| 3+ substantive authored commits | 20/20 |
+
+Review fixes included:
+
+- Incident health now returns exactly `{"status":"ok"}`.
+- Current versus planned services clarified in [SERVICES.md](/Users/austinfairbanks/school/cs426/426-project--bay-blues-/docs/SERVICES.md).
+- Grader startup and verification commands added to [README.md](/Users/austinfairbanks/school/cs426/426-project--bay-blues-/README.md).
+- Complete Sprint 4 disclosure and raw JSONL added.
+- AI markers now reference the exact transcript.
+- Canonical GitHub remote configured.
+- Post-fix reviewer returned **No issues**.
+- RabbitMQ, incident service, worker, and ambassador all report healthy.
+
+Committed and pushed as `fc2aa3d`.
+
+Still outside Task 1 scope before the full Sprint 4 can reach 100/100:
+
+- Task 2: Caddy healthcheck and `service_healthy` dependencies — 10 points.
+- Task 3: `results/sprint-4-failure.md` — 15 points. The failure mechanism already works; only the formal report is missing.
+- The branch must be opened as a PR and merged before Canvas submission.
+`````
+
+#### 130. User prompt
+
+`````text
+Uncommitted the parts that have to do with tasks 2 &3 , those are my teammates job
+`````
+
+#### 131. Assistant response
+
+`````text
+You’re right. The latest review commit crossed into teammate scope in two places: the strict incident `/health` payload change belongs to Task 2, and the new README language explicitly demonstrates worker-failure behavior from Task 3. I’ll remove those changes with a corrective commit because the branch is already pushed; I’ll keep the Task 1 diagram, async implementation, verification, and required disclosure intact.
+`````
+
+#### 132. Assistant response
+
+`````text
+The net functional state now matches the branch before the rubric-review commit: no README failure-scenario instructions and no Task 2 health-contract change. The remaining differences are Task 1 disclosure references only. Because this correction itself was AI-assisted, the course disclosure workflow requires me to refresh the same raw transcript and readable section before committing the correction.
+`````
+
+#### 133. Assistant response
+
+`````text
+Corrected and pushed as `86a9bf9`.
+
+Removed from the rubric-review changes:
+
+- Task 2’s incident health-response modification.
+- Task 3’s README failure-scenario instructions.
+
+No Caddy healthcheck or `results/sprint-4-failure.md` work was added. Task 1’s broker healthcheck and async-path verification remain intact.
+
+I used a corrective commit because the original commit was already pushed; the worktree is clean.
+`````
+
+#### 134. User prompt
+
+`````text
+Ok so given those - I’m good?
+`````
+
+#### 135. Assistant response
+
+`````text
+Yes—your Task 1 scope is in good shape:
+
+- Async path: 25/25 defensible.
+- Updated system diagram: 10/10.
+- Technical commit attribution: 20/20.
+- Verification passes and disclosure is complete.
+- Branch is pushed and clean.
+
+Only remaining action for your work is opening/reviewing/merging the PR. Tasks 2 and 3 remain with your teammates.
+`````
+
+#### 136. User prompt
+
+`````text
+Ok mount the PR and give me a link then make sure the PR includes the AI disclosure in the repo-accepted way
+`````
+
+#### 137. Assistant response
+
+`````text
+I’ll create the PR against `main` and return its link. Since you explicitly called out disclosure, I’m re-running the repository’s AI-disclosure workflow first: refresh the raw JSONL, refresh the verbatim Markdown section, verify both are committed, then use the repository’s PR template and confirm the remote PR diff contains them.
+`````
+
+#### 138. Assistant response
+
+`````text
+I’m at the PR packaging step now. I’m checking the repository’s exact PR template, then I’ll refresh and commit the disclosure snapshot before opening the PR so the remote diff—not just the local branch—proves both required disclosure artifacts are included.
+`````
+
 <!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; the Austin and Bruce Sprint 3 completion sections intentionally have no JSONL at the student's direction. -->
