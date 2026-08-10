@@ -2,6 +2,7 @@
 import os from "node:os";
 import amqp from "amqplib";
 import express from "express";
+import { createHttpMetrics } from "./http-metrics.js";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   const rawValue = process.env[name];
@@ -105,6 +106,13 @@ const log = (level, event, fields = {}) => {
 
 const app = express();
 app.disable("x-powered-by");
+
+const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
+  "emergency-notification-worker",
+);
+app.use(recordHttpMetrics);
+
+app.get("/metrics", serveMetrics);
 
 app.get("/health", (_request, response) => {
   response.status(200).json({ status: "ok" });

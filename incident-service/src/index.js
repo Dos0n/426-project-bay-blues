@@ -2,6 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import express from "express";
+import { createHttpMetrics } from "./http-metrics.js";
 import { createNotificationPublisher } from "./notification-publisher.js";
 
 // AI: Bounded environment parsing and input-size constants were generated with AI assistance.
@@ -41,6 +42,8 @@ const readEnvironmentValue = (name, defaultValue) => {
 };
 
 const app = express();
+const { recordHttpMetrics, serveMetrics } =
+  createHttpMetrics("incident-service");
 const port = readBoundedInteger("PORT", 3000, 1, 65535);
 const incidentLatencyMs = readBoundedInteger(
   "INCIDENT_LATENCY_MS",
@@ -296,8 +299,11 @@ const waitForIncidentLatency = () =>
 
 // AI: Express middleware and the health, create, and lookup endpoints were generated with AI assistance.
 app.disable("x-powered-by");
+app.use(recordHttpMetrics);
 // Parse JSON and enforce the request-size limit before any route handles input.
 app.use(express.json({ limit: "100kb" }));
+
+app.get("/metrics", serveMetrics);
 
 app.get("/health", (_request, response) => {
   response.status(200).json({
