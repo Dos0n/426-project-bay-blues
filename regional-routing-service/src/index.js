@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import express from "express";
 import { createClient } from "redis";
+// AI: Sprint 5 Prometheus instrumentation was added with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-155325-sprint-5-prometheus.jsonl.
 import { createHttpMetrics } from "./http-metrics.js";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
@@ -29,6 +30,7 @@ const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
 };
 
 const app = express();
+// AI: Sprint 5 creates a shared logical-service registry for each routing replica with AI assistance.
 const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
   "regional-routing-service",
 );
@@ -178,6 +180,7 @@ const respondAfterLatency = (operation, next) => {
 };
 
 app.disable("x-powered-by");
+// AI: Sprint 5 request measurement and the Prometheus endpoint were added with AI assistance.
 app.use(recordHttpMetrics);
 
 app.get("/metrics", serveMetrics);

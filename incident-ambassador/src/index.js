@@ -1,5 +1,6 @@
 // AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/dos0n-sprint2/.
 import express from "express";
+// AI: Sprint 5 Prometheus instrumentation was added with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-155325-sprint-5-prometheus.jsonl.
 import { createHttpMetrics } from "./http-metrics.js";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
@@ -46,6 +47,7 @@ const processingDelayMs = readBoundedInteger(
   0,
   5000,
 );
+// AI: Sprint 5 creates the ambassador metrics registry with AI assistance.
 const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
   "incident-ambassador",
 );
@@ -53,6 +55,7 @@ const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
 // Only GET/HEAD are safe to retry; a retried POST could create a duplicate incident.
 const idempotentMethods = new Set(["GET", "HEAD"]);
 
+// AI: Sprint 5 normalizes incident IDs so each UUID does not create a separate Prometheus time series.
 const getProxyMetricsRoute = (path) => {
   if (path === "/incidents") {
     return "/incidents";
@@ -182,6 +185,7 @@ const proxyRequest = async (request, response, requestBody) => {
 };
 
 app.disable("x-powered-by");
+// AI: Sprint 5 request measurement and the Prometheus endpoint were added with AI assistance.
 app.use(recordHttpMetrics);
 
 app.get("/metrics", serveMetrics);
@@ -221,6 +225,7 @@ app.get("/health", async (_request, response) => {
 app.use((request, response, next) => {
   const allowedMethods = new Set(["GET", "HEAD", "POST"]);
 
+  // AI: Sprint 5 assigns the bounded route label before catch-all proxy handling.
   response.locals.metricsRoute = getProxyMetricsRoute(request.path);
 
   if (!allowedMethods.has(request.method)) {

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import express from "express";
+// AI: Sprint 5 Prometheus instrumentation was added with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-155325-sprint-5-prometheus.jsonl.
 import { createHttpMetrics } from "./http-metrics.js";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
@@ -35,6 +36,7 @@ const dispatchLatencyMs = readBoundedInteger(
   0,
   10000,
 );
+// AI: Sprint 5 creates the dispatch-service metrics registry with AI assistance.
 const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
   "responder-dispatch-service",
 );
@@ -112,6 +114,7 @@ const respondAfterLatency = (operation, next) => {
 };
 
 app.disable("x-powered-by");
+// AI: Sprint 5 request measurement and the Prometheus endpoint were added with AI assistance.
 app.use(recordHttpMetrics);
 
 app.use(express.json({ limit: "100kb" }));

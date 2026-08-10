@@ -1,3 +1,4 @@
+# AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-155325-sprint-5-prometheus.jsonl.
 global:
   scrape_interval: 5s
   evaluation_interval: 5s
@@ -29,3 +30,4 @@ scrape_configs:
   - job_name: "emergency-notification-worker"
     static_configs:
       - targets: ["emergency-notification-worker:3000"]
+# AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-10-155325-sprint-5-prometheus.jsonl.
