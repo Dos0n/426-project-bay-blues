@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: "incident-service"
+    static_configs:
+      - targets: ["incident-service:3000"]
+
+  - job_name: "incident-ambassador"
+    static_configs:
+      - targets: ["incident-ambassador:3000"]
+
+  - job_name: "regional-routing-service"
+    static_configs:
+      - targets:
+          - "regional-routing-service-a:3000"
+          - "regional-routing-service-b:3000"
+          - "regional-routing-service-c:3000"
+
+  - job_name: "regional-routing-ambassador"
+    static_configs:
+      - targets: ["regional-routing-ambassador:3000"]
+
+  - job_name: "responder-dispatch-service"
+    static_configs:
+      - targets: ["responder-dispatch-service:3000"]
+
+  - job_name: "emergency-notification-worker"
+    static_configs:
+      - targets: ["emergency-notification-worker:3000"]
