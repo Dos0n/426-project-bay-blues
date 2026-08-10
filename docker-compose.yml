@@ -170,11 +170,22 @@ services:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:
       regional-routing-service-a:
-        condition: service_started
+        condition: service_healthy
       regional-routing-service-b:
-        condition: service_started
+        condition: service_healthy
       regional-routing-service-c:
-        condition: service_started
+        condition: service_healthy
+    # AI: Sprint 4 Task 2 — Compose healthcheck probes proxied /health so healthy means Caddy can serve a replica.
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -fsS
+        - http://localhost:3000/health
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 20s
 
   regional-routing-ambassador:
     build:
@@ -189,7 +200,7 @@ services:
       MAX_RETRIES: "${ROUTING_MAX_RETRIES:-2}"
     depends_on:
       regional-routing-load-balancer:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
       test:
         - CMD

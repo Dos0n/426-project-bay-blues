@@ -206,8 +206,33 @@ for that request.
 - Restarting Redis restored caching immediately; a previously warmed cache
   key returned `"cache":"HIT"` again on the next request.
 
+## Sprint 4 Health Verification (Task 2)
+
+<!-- AI: Sprint 4 Task 2 verification notes added with AI assistance. See ai/chats/sradhakrishnan/sprint-4-task-2-AI-DISCLOSURE.md. -->
+
+Compose marks each custom app and infrastructure dependency healthy via
+healthchecks. On the routing chain, `regional-routing-load-balancer` waits for
+healthy routing replicas, and `regional-routing-ambassador` waits for a healthy
+load balancer (`depends_on` with `condition: service_healthy`). Caddy’s own
+Compose healthcheck probes `http://localhost:3000/health` (proxied to a replica).
+
+```bash
+docker compose up --build -d
+docker compose ps
+curl -fsS http://localhost:3002/health | jq
+curl -fsS http://localhost:3003/health | jq
+curl -fsS http://localhost:3004/health | jq
+curl -fsS http://localhost:3005/health | jq
+```
+
+### Recorded Validation: August 9, 2026
+
+After Task 2 wiring, every service with a healthcheck reported `healthy`
+(including `regional-routing-load-balancer`). Public `/health` curls on ports
+3002–3005 returned `status: "ok"`.
+
 Any pull request that adds, removes, or renames a service or infrastructure
 container, or changes a connection between them, must update both the service
 list and the Mermaid diagram above. The repository pull-request template
 includes this as a required checklist item.
-<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl. -->
+<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl, and ai/chats/sradhakrishnan/sprint-4-task-2-AI-DISCLOSURE.md. -->
