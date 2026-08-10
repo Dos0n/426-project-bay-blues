@@ -12,7 +12,7 @@
 - `regional-routing-ambassador` (Owner: `@ShriRadhakrishnan1`): Ambassador proxy in front of the routing load balancer; forwards lookups, applies timeout/retry under load, and logs each upstream attempt.
 - `incident-ambassador` (Owner: `@Dos0n`): Ambassador proxy in front of `incident-service`; forwards `GET` and `POST` requests, retries safe (`GET`/`HEAD`) requests on timeout or 5xx, never retries `POST /incidents` to avoid duplicate incident creation, applies a simulated request-inspection delay via `setTimeout` before replying, and logs each upstream attempt.
 - `responder-dispatch-service` (Owner: `@Dos0n`): Simulates notifying and assigning the appropriate security, medical, police, or crisis-response team via `POST /dispatches` (body: `incidentId`, `teamId`), tracks dispatch status through `GET /dispatches/:dispatchId` and `PATCH /dispatches/:dispatchId/status`, and lists the response-team roster via `GET /teams`.
-<!-- AI: Sprint 5 added the Prometheus service description and scrape connections with AI assistance. See ai/chats/2026-08-10-155325-sprint-5-prometheus.jsonl. -->
+<!-- AI: Sprint 5 added the Prometheus service description and scrape connections with AI assistance. See ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl. -->
 - `prometheus`: Scrapes `GET /metrics` from all eight custom-service containers every five seconds and stores their request counters and response-time histograms for querying and dashboards.
 
 ## Planned Service

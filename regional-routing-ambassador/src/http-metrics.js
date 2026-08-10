@@ -1,4 +1,4 @@
-// AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-155325-sprint-5-prometheus.jsonl.
+// AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl.
 import { Counter, Histogram, Registry } from "prom-client";
 
 const responseTimeBucketsMilliseconds = [
@@ -56,4 +56,4 @@ const createHttpMetrics = (serviceName) => {
 };
 
 export { createHttpMetrics };
-// AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-10-155325-sprint-5-prometheus.jsonl.
+// AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl.

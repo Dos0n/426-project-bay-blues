@@ -1,4 +1,4 @@
-<!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-155325-sprint-5-prometheus.jsonl. -->
+<!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl. -->
 # Blue Light
 
 A simulated distributed emergency-response system built by Team 9 for COMPSCI
@@ -133,4 +133,4 @@ default shown below.
 - [Project Description](docs/PROJECT.md)
 - [Initial Service List](docs/SERVICES.md)
 - [Service Level Objectives](docs/SLO.md)
-<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-10-155325-sprint-5-prometheus.jsonl. -->
+<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl. -->

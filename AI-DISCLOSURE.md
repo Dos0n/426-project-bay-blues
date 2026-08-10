@@ -5046,7 +5046,7 @@ I’m at the PR packaging step now. I’m checking the repository’s exact PR t
 
 ### Disclosure artifacts
 
-- Raw Codex transcript: `ai/chats/2026-08-10-155325-sprint-5-prometheus.jsonl`
+- Raw Codex transcript: `ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl`
 - Scope: planning, implementing, verifying, documenting, and reviewing Prometheus request metrics across every custom service.
 
 ### AI-assisted files
@@ -7229,6 +7229,102 @@ I’m using the repository’s AI-disclosure workflow now because this final gat
 
 ``````text
 The README now covers clean startup, all existing environment variables, service URLs, Prometheus targets, and the three dashboard-ready queries. The disclosure skill now requires saving the raw Codex session before I add exact transcript references to the source files.
+``````
+
+#### 192. Assistant response
+
+``````text
+The disclosure now contains the raw JSONL, exact file references, strict-JSON disclosure, and 191 verbatim user/assistant messages from the agreed PR plan onward. I’m starting the clean grader workflow now: tear down only this Compose project, rebuild it with one command, then validate health and scrape results.
+``````
+
+#### 193. Assistant response
+
+``````text
+The clean rebuild completed from cache and all infrastructure started from the single command. Compose is now waiting through the configured service-health dependency chain; I’m letting those checks finish before probing Prometheus.
+``````
+
+#### 194. Assistant response
+
+``````text
+The application containers have started, but Docker’s healthcheck scheduler is again starved by the unrelated CVAT stack. You previously asked for all CVAT containers to be closed, so I’m applying that existing instruction again—stopping, not deleting, those containers—then I’ll rerun the same Compose start to finish the health chain.
+``````
+
+#### 195. Assistant response
+
+``````text
+The clean restart now passes after stopping CVAT: all 12 project containers are healthy, Prometheus sees 8/8 targets, both metric families cover all 6 logical services, and the main-path queries return request rate, `0%` error rate, and `23 ms` p95. I’m doing the final repository/disclosure consistency checks before the last commit.
+``````
+
+#### 196. Assistant response
+
+``````text
+Gate 5 is committed as `02b1162`. The worktree is clean locally; I’m checking the repository’s PR template and remote state, then I’ll push the five-commit branch and open the requested PR.
+``````
+
+#### 197. Assistant response
+
+``````text
+The PR template exposed one real packaging gap before push: adding Prometheus changes the infrastructure architecture, so `docs/SERVICES.md` must include it in both the service list and Mermaid diagram. I’m fixing that now and amending the unpushed Gate 5 commit; otherwise the PR would knowingly fail its own checklist.
+``````
+
+#### 198. Assistant response
+
+``````text
+The branch is pushed and no existing PR conflicts with it. I’m opening the PR with the exact clean-start and Prometheus evidence, plus an explicit scope note that Grafana, structured logging, and the final k6 report are separate remaining Sprint 5 work.
+``````
+
+#### 199. Assistant response
+
+``````text
+PR #21 is open. I’m reviewing two layers separately now: first this PR’s Task 1 correctness, then the repository’s full Sprint 5 readiness. That distinction matters because a clean Prometheus PR can still leave team-level Grafana, logging, load-test, and documentation blockers.
+``````
+
+#### 200. Assistant response
+
+``````text
+PR [#21](https://github.com/Dos0n/426-project-bay-blues/pull/21) is open, public, mergeable, and clean.
+
+Gate 5 commit: `c279456`
+
+Task 1 is merge-ready. The full Sprint 5 submission is not yet ready.
+
+## Review findings
+
+- Blocker — Grafana is absent. Compose currently ends with Prometheus and has no auto-provisioned dashboard showing request rate, error rate, and p95 latency. See [docker-compose.yml](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/docker-compose.yml:259).
+
+- Blocker — structured logging does not meet Task 3. Existing JSON logs generally lack `timestamp`, and most services have no completed-request log containing method, path, status code, and response time. Examples: [incident-service](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/incident-service/src/index.js:423), [notification worker](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/emergency-notification-worker/src/index.js:92), and [dispatch service](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/responder-dispatch-service/src/index.js:258).
+
+- Blocker — `load-tests/sprint-5-load.js` and `results/sprint-5-load-test.md` do not exist. Therefore there is no 60-second/10-VU evidence, complete k6 summary, SLO comparison, Sprint 3 comparison, or bottleneck interpretation.
+
+- Documentation remains incomplete for final submission. The README now documents startup, Prometheus, and user-configurable environment variables, but not the final load-test command. The architecture diagram includes Prometheus but cannot include Grafana until that service exists. See [README.md](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/README.md:25) and [SERVICES.md](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/docs/SERVICES.md:22).
+
+- Low-risk metric caveat — `http_requests_total` increments on the response `finish` event, so it technically counts completed responses rather than every request received; aborted connections will not increment it. Normal grader requests are covered. See [http-metrics.js](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/incident-service/src/http-metrics.js:26).
+
+## What passes now
+
+- All six logical custom services expose counters, millisecond histograms, and `GET /metrics`.
+- Prometheus scrapes all eight running custom-service targets.
+- A clean `docker compose up -d --build` completed.
+- All 12 current containers became healthy.
+- Prometheus reported 8/8 targets `UP`.
+- Smoke queries returned request rate, `0%` error rate, and `23 ms` p95.
+- Architecture documentation and required AI disclosure are committed.
+- The public repository and individual commit attribution requirements are satisfied.
+- No PR-scope correctness issue blocks merging Task 1.
+
+I stopped—not deleted—the CVAT containers again to allow Docker to schedule the clean-start health checks.
+``````
+
+#### 201. User prompt
+
+``````text
+ok thats calm task 1 pr can be mounted then. first, do the required ai disclosures from the first code prompt onwards using the ai disclosure and full jsonl flow for relvant context
+``````
+
+#### 202. Assistant response
+
+``````text
+The PR is already open, but I agree the disclosure should be refreshed before treating it as ready. I’m applying the disclosure skill again: replace the earlier mid-session JSONL snapshot with a current full raw session, preserve the Markdown transcript beginning at “ok sick lets plan out PR 1,” append every later relevant user/assistant message verbatim, and update all source references to the final JSONL filename.
 ``````
 
 <!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; the Austin and Bruce Sprint 3 completion sections intentionally have no JSONL at the student's direction. -->
