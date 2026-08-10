@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import express from "express";
+import { createHttpMetrics } from "./http-metrics.js";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   const rawValue = process.env[name];
@@ -33,6 +34,9 @@ const dispatchLatencyMs = readBoundedInteger(
   200,
   0,
   10000,
+);
+const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
+  "responder-dispatch-service",
 );
 
 const statusOrder = ["assigned", "en_route", "on_scene", "resolved"];
@@ -108,7 +112,11 @@ const respondAfterLatency = (operation, next) => {
 };
 
 app.disable("x-powered-by");
+app.use(recordHttpMetrics);
+
 app.use(express.json({ limit: "100kb" }));
+
+app.get("/metrics", serveMetrics);
 
 app.get("/health", (_request, response) => {
   response.status(200).json({
