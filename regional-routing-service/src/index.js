@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import express from "express";
 import { createClient } from "redis";
+import { createHttpMetrics } from "./http-metrics.js";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   const rawValue = process.env[name];
@@ -28,6 +29,9 @@ const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
 };
 
 const app = express();
+const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
+  "regional-routing-service",
+);
 const port = readBoundedInteger("PORT", 3000, 1, 65535);
 const routingLatencyMs = readBoundedInteger(
   "ROUTING_LATENCY_MS",
@@ -174,6 +178,9 @@ const respondAfterLatency = (operation, next) => {
 };
 
 app.disable("x-powered-by");
+app.use(recordHttpMetrics);
+
+app.get("/metrics", serveMetrics);
 
 // AI: Sprint 3 success responses expose the serving replica without changing existing response fields or routing behavior.
 app.get("/health", (_request, response) => {

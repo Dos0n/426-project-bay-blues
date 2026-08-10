@@ -1,5 +1,6 @@
 // AI: This file was generated or substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/.
 import express from "express";
+import { createHttpMetrics } from "./http-metrics.js";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   const rawValue = process.env[name];
@@ -26,6 +27,9 @@ const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
 };
 
 const app = express();
+const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
+  "regional-routing-ambassador",
+);
 const port = readBoundedInteger("PORT", 3000, 1, 65535);
 const upstreamUrl = (
   process.env.UPSTREAM_URL ?? "http://regional-routing-service:3000"
@@ -37,6 +41,7 @@ const upstreamTimeoutMs = readBoundedInteger(
   60000,
 );
 const maxRetries = readBoundedInteger("MAX_RETRIES", 2, 0, 5);
+const observableProxyRoutes = new Set(["/regions", "/route"]);
 
 const sleep = (milliseconds) =>
   new Promise((resolve) => {
@@ -141,6 +146,9 @@ const proxyRequest = async (request, response) => {
 };
 
 app.disable("x-powered-by");
+app.use(recordHttpMetrics);
+
+app.get("/metrics", serveMetrics);
 
 app.get("/health", async (_request, response) => {
   try {
@@ -172,6 +180,10 @@ app.get("/health", async (_request, response) => {
 });
 
 app.use((request, response, next) => {
+  response.locals.metricsRoute = observableProxyRoutes.has(request.path)
+    ? request.path
+    : "unmatched";
+
   if (request.method !== "GET" && request.method !== "HEAD") {
     response.status(405).json({
       error: {
