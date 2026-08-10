@@ -175,6 +175,17 @@ services:
         condition: service_started
       regional-routing-service-c:
         condition: service_started
+    # AI: Sprint 4 Task 2 — Compose healthcheck probes proxied /health so healthy means Caddy can serve a replica.
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -fsS
+        - http://localhost:3000/health
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 20s
 
   regional-routing-ambassador:
     build:
