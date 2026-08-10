@@ -1,7 +1,8 @@
-// AI: This file was generated or substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
+// AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md, ai/chats/austinf-sprint2/austinf-sprint2.jsonl, and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import express from "express";
+import { createNotificationPublisher } from "./notification-publisher.js";
 
 // AI: Bounded environment parsing and input-size constants were generated with AI assistance.
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
@@ -28,6 +29,17 @@ const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   return value;
 };
 
+// AI: Sprint 4 validates RabbitMQ connection settings before accepting traffic.
+const readEnvironmentValue = (name, defaultValue) => {
+  const value = process.env[name] ?? defaultValue;
+
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`${name} must be a non-empty string`);
+  }
+
+  return value;
+};
+
 const app = express();
 const port = readBoundedInteger("PORT", 3000, 1, 65535);
 const incidentLatencyMs = readBoundedInteger(
@@ -36,6 +48,22 @@ const incidentLatencyMs = readBoundedInteger(
   0,
   10000,
 );
+const rabbitMqHost = readEnvironmentValue("RABBITMQ_HOST", "rabbitmq");
+const rabbitMqPort = readBoundedInteger("RABBITMQ_PORT", 5672, 1, 65535);
+const rabbitMqHeartbeatSeconds = readBoundedInteger(
+  "RABBITMQ_HEARTBEAT_SECONDS",
+  60,
+  5,
+  300,
+);
+const rabbitMqUser = readEnvironmentValue("RABBITMQ_USER");
+const rabbitMqPassword = readEnvironmentValue("RABBITMQ_PASSWORD");
+const notificationQueue = readEnvironmentValue(
+  "NOTIFICATION_QUEUE",
+  "incident-notification-jobs",
+);
+
+let publishIncidentNotification;
 
 const maximumDescriptionLength = 1000;
 const maximumVenueLength = 200;
@@ -260,6 +288,12 @@ const respondAfterLatency = (operation, next) => {
   }, incidentLatencyMs);
 };
 
+// AI: Incident creation awaits simulated latency and broker confirmation without waiting for worker processing.
+const waitForIncidentLatency = () =>
+  new Promise((resolve) => {
+    setTimeout(resolve, incidentLatencyMs);
+  });
+
 // AI: Express middleware and the health, create, and lookup endpoints were generated with AI assistance.
 app.disable("x-powered-by");
 // Parse JSON and enforce the request-size limit before any route handles input.
@@ -272,12 +306,14 @@ app.get("/health", (_request, response) => {
   });
 });
 
-app.post("/incidents", (request, response, next) => {
+app.post("/incidents", async (request, response, next) => {
   const reportedAt = new Date().toISOString();
   const body = request.body === undefined ? {} : request.body;
   const validationErrors = validateIncidentRequest(body);
 
-  respondAfterLatency(() => {
+  try {
+    await waitForIncidentLatency();
+
     if (validationErrors.length > 0) {
       response.status(400).json({
         error: {
@@ -290,13 +326,29 @@ app.post("/incidents", (request, response, next) => {
     }
 
     const incident = createIncident(body, reportedAt);
+
+    try {
+      await publishIncidentNotification(incident);
+    } catch {
+      response.status(503).json({
+        error: {
+          code: "NOTIFICATION_QUEUE_UNAVAILABLE",
+          message:
+            "The incident could not be accepted because durable notification processing is unavailable",
+        },
+      });
+      return;
+    }
+
     incidents.set(incident.incidentId, incident);
 
     response
       .location(`/incidents/${incident.incidentId}`)
       .status(201)
       .json(incident);
-  }, next);
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get("/incidents/:incidentId", (request, response, next) => {
@@ -375,13 +427,38 @@ app.use((error, _request, response, next) => {
   });
 });
 
-app.listen(port, () => {
-  console.log(
+// AI: Sprint 4 starts HTTP only after the durable notification publisher is ready.
+const start = async () => {
+  const publisher = await createNotificationPublisher({
+    hostname: rabbitMqHost,
+    port: rabbitMqPort,
+    heartbeatSeconds: rabbitMqHeartbeatSeconds,
+    username: rabbitMqUser,
+    password: rabbitMqPassword,
+    queueName: notificationQueue,
+  });
+
+  publishIncidentNotification = publisher.publishIncidentNotification;
+
+  app.listen(port, () => {
+    console.log(
+      JSON.stringify({
+        level: "info",
+        message: "Incident service started",
+        port,
+      }),
+    );
+  });
+};
+
+start().catch((error) => {
+  console.error(
     JSON.stringify({
-      level: "info",
-      message: "Incident service started",
-      port,
+      level: "error",
+      event: "incident_service_start_failed",
+      error: error instanceof Error ? error.message : String(error),
     }),
   );
+  process.exit(1);
 });
-// AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/austinf-sprint2/austinf-sprint2.jsonl.
+// AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/austinf-sprint2/austinf-sprint2.jsonl, and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.
