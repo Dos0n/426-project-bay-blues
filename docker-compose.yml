@@ -245,6 +245,9 @@ services:
     environment:
       PORT: "3000"
       DISPATCH_LATENCY_MS: "${DISPATCH_LATENCY_MS:-200}"
+      # AI: Sprint 4 Task 3 scripted-failure toggle; default off keeps startup all-healthy.
+      DISPATCH_FAULT_MODE: "${DISPATCH_FAULT_MODE:-off}"
+      DISPATCH_FAULT_LATENCY_MS: "${DISPATCH_FAULT_LATENCY_MS:-6000}"
     healthcheck:
       test:
         - CMD
