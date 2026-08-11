@@ -285,6 +285,7 @@ services:
       - "${GRAFANA_PORT:-3006}:3000"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     healthcheck:
       test:
         - CMD
