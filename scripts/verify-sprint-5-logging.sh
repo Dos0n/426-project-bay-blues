@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AI: This file was generated with AI assistance for Sprint 5 structured logging verification. See AI-DISCLOSURE.md.
+# AI: This file was generated with AI assistance for Sprint 5 structured logging verification. See AI-DISCLOSURE.md and ai/chats/2026-08-10-231436-sprint-5-json-logging.jsonl.
 set -euo pipefail
 
 readonly health_wait_attempts="${HEALTH_WAIT_ATTEMPTS:-90}"
@@ -275,4 +275,4 @@ phase "Verify Prometheus regression"
 wait_for_prometheus
 
 printf '\nPASS Sprint 5 structured logging verification complete\n'
-# AI: End AI-assisted file. See AI-DISCLOSURE.md.
+# AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-10-231436-sprint-5-json-logging.jsonl.
