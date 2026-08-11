@@ -278,7 +278,7 @@ services:
       retries: 5
       start_period: 5s
 
-  # AI: Sprint 5 Grafana service and Prometheus datasource provisioning mount were added with AI assistance.
+  # AI: Sprint 5 Task 2 Grafana service, datasource/dashboard provisioning mounts, and healthcheck were added with AI assistance. See ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md.
   grafana:
     image: grafana/grafana
     ports:
@@ -300,4 +300,4 @@ services:
 
 volumes:
   rabbitmq-data:
-# AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.
+# AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl, and ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md.

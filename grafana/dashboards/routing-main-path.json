@@ -1,8 +1,8 @@
 {
   "uid": "routing-main-path",
   "title": "Regional routing — GET /route",
-  "description": "Main public routing path: regional-routing-ambassador GET /route. Request rate, error rate (% non-2xx), and p95 latency in milliseconds.",
-  "tags": ["routing", "sprint-5"],
+  "description": "Main public routing path: regional-routing-ambassador GET /route. Request rate, error rate (% non-2xx), and p95 latency in milliseconds. AI: This dashboard JSON was generated with AI assistance for Sprint 5 Task 2. See ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md.",
+  "tags": ["routing", "sprint-5", "ai-assisted"],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,

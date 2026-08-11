@@ -257,4 +257,4 @@ Any pull request that adds, removes, or renames a service or infrastructure
 container, or changes a connection between them, must update both the service
 list and the Mermaid diagram above. The repository pull-request template
 includes this as a required checklist item.
-<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl, and ai/chats/sradhakrishnan/sprint-4-task-2-AI-DISCLOSURE.md. -->
+<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl, ai/chats/sradhakrishnan/sprint-4-task-2-AI-DISCLOSURE.md, and ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md. -->

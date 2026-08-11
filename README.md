@@ -1,4 +1,4 @@
-<!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl. -->
+<!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md, ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl, and ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md. -->
 # Blue Light
 
 A simulated distributed emergency-response system built by Team 9 for COMPSCI
@@ -99,6 +99,7 @@ histogram_quantile(
 The last expression returns milliseconds because the underlying histogram is
 recorded in milliseconds.
 
+<!-- AI: Sprint 5 Task 2 Grafana section was added with AI assistance. See ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md. -->
 ## Grafana
 
 Grafana is available at `http://localhost:3006` (override with `GRAFANA_PORT`).
@@ -149,4 +150,4 @@ default shown below.
 - [Project Description](docs/PROJECT.md)
 - [Initial Service List](docs/SERVICES.md)
 - [Service Level Objectives](docs/SLO.md)
-<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl. -->
+<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl, and ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md. -->
