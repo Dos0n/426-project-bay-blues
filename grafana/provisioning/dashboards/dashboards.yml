@@ -1,0 +1,15 @@
+# AI: This file was generated with AI assistance for Sprint 5 Task 2. See ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md.
+apiVersion: 1
+
+providers:
+  - name: blue-light-dashboards
+    orgId: 1
+    folder: ""
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
+# AI: End AI-assisted file. See ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md.

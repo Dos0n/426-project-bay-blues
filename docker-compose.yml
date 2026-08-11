@@ -278,6 +278,26 @@ services:
       retries: 5
       start_period: 5s
 
+  # AI: Sprint 5 Task 2 Grafana service, datasource/dashboard provisioning mounts, and healthcheck were added with AI assistance. See ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md.
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "${GRAFANA_PORT:-3006}:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - --quiet
+        - http://localhost:3000/api/health
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
 volumes:
   rabbitmq-data:
-# AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.
+# AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl, and ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md.

@@ -1,4 +1,4 @@
-<!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl. -->
+<!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md, ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl, and ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md. -->
 # Blue Light
 
 A simulated distributed emergency-response system built by Team 9 for COMPSCI
@@ -54,6 +54,7 @@ docker compose down
 | Responder dispatch service | `http://localhost:3004` | Dispatch creation, lookup, and status updates |
 | Notification worker HTTP server | `http://localhost:3005` | Worker health and metrics endpoints |
 | Prometheus | `http://localhost:9090` | Metrics targets, queries, and graphs |
+| Grafana | `http://localhost:3006` | Provisioned dashboards over Prometheus |
 | RabbitMQ management | `http://localhost:15672` | Local queue administration |
 
 The incident service, three routing replicas, Caddy, Redis, and RabbitMQ's
@@ -98,6 +99,20 @@ histogram_quantile(
 The last expression returns milliseconds because the underlying histogram is
 recorded in milliseconds.
 
+<!-- AI: Sprint 5 Task 2 Grafana section was added with AI assistance. See ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md. -->
+## Grafana
+
+Grafana is available at `http://localhost:3006` (override with `GRAFANA_PORT`).
+It is preconfigured with a Prometheus datasource (`http://prometheus:9090` on
+the Compose network) and auto-loads the **Regional routing — GET /route**
+dashboard on startup—no manual import or UI datasource setup for the demo.
+
+Default login is Grafana's stock `admin` / `admin` (you may be prompted to
+change the password on first visit). The dashboard shows request rate, error
+rate (% non-2xx), and p95 latency in milliseconds for
+`regional-routing-ambassador` `GET /route`. Generate a little `/route` traffic
+if the panels look empty after a fresh start.
+
 ## Environment Variables
 
 All variables are optional. When a variable is missing, Compose uses the local
@@ -128,10 +143,11 @@ default shown below.
 | `NOTIFICATION_QUEUE` | `incident-notification-jobs` | Durable notification queue name |
 | `NOTIFICATION_PROCESSING_MS` | `500` | Simulated worker processing time |
 | `PROMETHEUS_PORT` | `9090` | Prometheus host port |
+| `GRAFANA_PORT` | `3006` | Grafana host port |
 
 ## Sprint 1 Deliverables
 
 - [Project Description](docs/PROJECT.md)
 - [Initial Service List](docs/SERVICES.md)
 - [Service Level Objectives](docs/SLO.md)
-<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl. -->
+<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl, and ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md. -->
