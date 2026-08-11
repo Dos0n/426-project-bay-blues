@@ -14,6 +14,8 @@
 - `responder-dispatch-service` (Owner: `@Dos0n`): Simulates notifying and assigning the appropriate security, medical, police, or crisis-response team via `POST /dispatches` (body: `incidentId`, `teamId`), tracks dispatch status through `GET /dispatches/:dispatchId` and `PATCH /dispatches/:dispatchId/status`, and lists the response-team roster via `GET /teams`.
 <!-- AI: Sprint 5 added the Prometheus service description and scrape connections with AI assistance. See ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl. -->
 - `prometheus`: Scrapes `GET /metrics` from all eight custom-service containers every five seconds and stores their request counters and response-time histograms for querying and dashboards.
+<!-- AI: Sprint 5 Task 2 Grafana documentation was added with AI assistance. See ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md. -->
+- `grafana`: Host-port UI that queries Prometheus over Compose DNS; provisions the Prometheus datasource and the regional-routing `GET /route` dashboard automatically (default `http://localhost:3006`).
 
 ## Planned Service
 
@@ -38,6 +40,7 @@ flowchart LR
         redis[(redis<br/>Internal port 6379<br/>Shared /route cache, 30s TTL)]
         dispatch[responder-dispatch-service<br/>Host port 3004<br/>Assign and track responder teams]
         prometheus[(prometheus<br/>Host port 9090<br/>Scrape and query HTTP metrics)]
+        grafana[grafana<br/>Host port 3006<br/>Provisioned dashboards]
     end
 
     client -->|POST /incidents<br/>GET /incidents/:incidentId| incidentAmbassador
@@ -61,6 +64,7 @@ flowchart LR
     routingB -.->|Scrape /metrics| prometheus
     routingC -.->|Scrape /metrics| prometheus
     dispatch -.->|Scrape /metrics| prometheus
+    grafana -->|Query metrics| prometheus
 ```
 
 The primary HTTP services remain separate client-facing paths in the final system;
@@ -82,7 +86,9 @@ Sprint 4 notification work.
 Prometheus observes rather than proxies application traffic. Every custom
 service exposes a request counter and response-time histogram at `/metrics`;
 Prometheus reaches those endpoints over Compose DNS, including all three
-routing replicas independently.
+routing replicas independently. Grafana reads those series from Prometheus and
+auto-loads a dashboard for the main public routing path
+(`regional-routing-ambassador` `GET /route`).
 
 The regional routing service is replicated because routing is naturally
 stateless. Every replica receives the location and emergency type, loads the
