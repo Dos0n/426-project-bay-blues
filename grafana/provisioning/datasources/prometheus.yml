@@ -1,0 +1,11 @@
+# AI: This file was generated with AI assistance for Sprint 5 Grafana provisioning.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+# AI: End AI-assisted file.
