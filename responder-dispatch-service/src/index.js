@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import express from "express";
 // AI: Sprint 5 Prometheus instrumentation was added with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl.
 import { createHttpMetrics } from "./http-metrics.js";
+import { createLogger } from "./logger.js";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   const rawValue = process.env[name];
@@ -44,6 +45,8 @@ const readEnumValue = (name, defaultValue, allowedValues) => {
 };
 
 const app = express();
+// AI: Sprint 5 routes lifecycle and error events through the structured JSON logger.
+const log = createLogger("responder-dispatch-service");
 const port = readBoundedInteger("PORT", 3000, 1, 65535);
 const dispatchLatencyMs = readBoundedInteger(
   "DISPATCH_LATENCY_MS",
@@ -377,13 +380,10 @@ app.use((error, _request, response, next) => {
     return;
   }
 
-  console.error(
-    JSON.stringify({
-      level: "error",
-      message: "Unhandled request error",
-      error: error instanceof Error ? error.message : String(error),
-    }),
-  );
+  // AI: Sprint 5 standardizes unexpected request failures as structured JSON.
+  log("error", "Unhandled request error", {
+    error: error instanceof Error ? error.message : String(error),
+  });
 
   response.status(500).json({
     error: {
@@ -394,13 +394,7 @@ app.use((error, _request, response, next) => {
 });
 
 app.listen(port, () => {
-  console.log(
-    JSON.stringify({
-      level: "info",
-      message: "Responder dispatch service started",
-      port,
-      // AI: Sprint 4 Task 3 — expose the boot-time fault mode for observability.
-      faultMode,
-    }),
-  );
+  // AI: Sprint 5 standardizes the service startup event as structured JSON.
+  // AI: Sprint 4 Task 3 exposes the boot-time fault mode for observability.
+  log("info", "Responder dispatch service started", { port, faultMode });
 });

@@ -4,6 +4,7 @@ import amqp from "amqplib";
 import express from "express";
 // AI: Sprint 5 Prometheus instrumentation was added with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl.
 import { createHttpMetrics } from "./http-metrics.js";
+import { createLogger } from "./logger.js";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   const rawValue = process.env[name];
@@ -89,20 +90,10 @@ const delay = (milliseconds) =>
     setTimeout(resolve, milliseconds);
   });
 
-const log = (level, event, fields = {}) => {
-  const entry = JSON.stringify({
-    level,
-    event,
-    workerId,
-    ...fields,
-  });
-
-  if (level === "error") {
-    console.error(entry);
-    return;
-  }
-
-  console.log(entry);
+// AI: Sprint 5 preserves queue event identifiers while adding required structured log fields.
+const writeLog = createLogger("emergency-notification-worker");
+const logEvent = (level, event, message, fields = {}) => {
+  writeLog(level, message, { event, workerId, ...fields });
 };
 
 const app = express();
@@ -140,13 +131,20 @@ const start = async () => {
   });
 
   connection.on("error", (error) => {
-    log("error", "rabbitmq_connection_error", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logEvent(
+      "error",
+      "rabbitmq_connection_error",
+      "RabbitMQ connection error",
+      { error: error instanceof Error ? error.message : String(error) },
+    );
   });
 
   connection.on("close", () => {
-    log("error", "rabbitmq_connection_closed");
+    logEvent(
+      "error",
+      "rabbitmq_connection_closed",
+      "RabbitMQ connection closed",
+    );
     process.exit(1);
   });
 
@@ -170,44 +168,65 @@ const start = async () => {
       try {
         job = JSON.parse(message.content.toString("utf8"));
       } catch {
-        log("error", "incident_notification_rejected", {
-          reason: "invalid_json",
-        });
+        logEvent(
+          "error",
+          "incident_notification_rejected",
+          "Incident notification rejected",
+          { reason: "invalid_json" },
+        );
         channel.nack(message, false, false);
         return;
       }
 
       if (!isNotificationJob(job)) {
-        log("error", "incident_notification_rejected", {
-          reason: "invalid_schema",
-        });
+        logEvent(
+          "error",
+          "incident_notification_rejected",
+          "Incident notification rejected",
+          { reason: "invalid_schema" },
+        );
         channel.nack(message, false, false);
         return;
       }
 
       try {
-        log("info", "incident_notification_received", {
-          jobId: job.jobId,
-          incidentId: job.incidentId,
-          redelivered: message.fields.redelivered,
-        });
+        logEvent(
+          "info",
+          "incident_notification_received",
+          "Incident notification received",
+          {
+            jobId: job.jobId,
+            incidentId: job.incidentId,
+            redelivered: message.fields.redelivered,
+          },
+        );
 
         await delay(processingDelayMs);
 
-        log("info", "incident_notification_completed", {
-          jobId: job.jobId,
-          incidentId: job.incidentId,
-          emergencyType: job.emergencyType,
-          severity: job.severity,
-        });
+        logEvent(
+          "info",
+          "incident_notification_completed",
+          "Incident notification completed",
+          {
+            jobId: job.jobId,
+            incidentId: job.incidentId,
+            emergencyType: job.emergencyType,
+            severity: job.severity,
+          },
+        );
 
         channel.ack(message);
       } catch (error) {
-        log("error", "incident_notification_failed", {
-          jobId: job.jobId,
-          incidentId: job.incidentId,
-          error: error instanceof Error ? error.message : String(error),
-        });
+        logEvent(
+          "error",
+          "incident_notification_failed",
+          "Incident notification failed",
+          {
+            jobId: job.jobId,
+            incidentId: job.incidentId,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
 
         channel.nack(message, false, true);
       }
@@ -216,17 +235,22 @@ const start = async () => {
   );
 
   app.listen(port, () => {
-    log("info", "notification_worker_ready", {
-      port,
-      queueName,
-    });
+    logEvent(
+      "info",
+      "notification_worker_ready",
+      "Notification worker ready",
+      { port, queueName },
+    );
   });
 };
 
 start().catch((error) => {
-  log("error", "notification_worker_start_failed", {
-    error: error instanceof Error ? error.message : String(error),
-  });
+  logEvent(
+    "error",
+    "notification_worker_start_failed",
+    "Notification worker failed to start",
+    { error: error instanceof Error ? error.message : String(error) },
+  );
   process.exit(1);
 });
 

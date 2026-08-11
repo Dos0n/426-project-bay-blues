@@ -10,4 +10,5 @@ COPY src/ ./src/
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# AI: Sprint 5 starts Node directly so the custom-service container emits no npm banner lines among its JSON logs.
+CMD ["node", "src/index.js"]

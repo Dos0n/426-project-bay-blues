@@ -1,20 +1,12 @@
 // AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.
 import { randomUUID } from "node:crypto";
 import amqp from "amqplib";
+import { createLogger } from "./logger.js";
 
-const log = (level, event, fields = {}) => {
-  const entry = JSON.stringify({
-    level,
-    event,
-    ...fields,
-  });
-
-  if (level === "error") {
-    console.error(entry);
-    return;
-  }
-
-  console.log(entry);
+// AI: Sprint 5 preserves publisher event identifiers while adding required structured log fields.
+const writeLog = createLogger("incident-service");
+const logEvent = (level, event, message, fields = {}) => {
+  writeLog(level, message, { event, ...fields });
 };
 
 const confirmPublish = (channel, queueName, job) =>
@@ -63,16 +55,20 @@ const createNotificationPublisher = async ({
   });
 
   connection.on("error", (error) => {
-    log("error", "rabbitmq_connection_error", {
-      service: "incident-service",
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logEvent(
+      "error",
+      "rabbitmq_connection_error",
+      "RabbitMQ connection error",
+      { error: error instanceof Error ? error.message : String(error) },
+    );
   });
 
   connection.on("close", () => {
-    log("error", "rabbitmq_connection_closed", {
-      service: "incident-service",
-    });
+    logEvent(
+      "error",
+      "rabbitmq_connection_closed",
+      "RabbitMQ connection closed",
+    );
   });
 
   const channel = await connection.createConfirmChannel();
@@ -81,9 +77,12 @@ const createNotificationPublisher = async ({
     durable: true,
   });
 
-  log("info", "notification_publisher_ready", {
-    queueName,
-  });
+  logEvent(
+    "info",
+    "notification_publisher_ready",
+    "Notification publisher ready",
+    { queueName },
+  );
 
   const publishIncidentNotification = async (incident) => {
     const job = {
@@ -99,20 +98,26 @@ const createNotificationPublisher = async ({
     try {
       await confirmPublish(channel, queueName, job);
     } catch (error) {
-      log("error", "incident_notification_enqueue_failed", {
-        jobId: job.jobId,
-        incidentId: job.incidentId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logEvent(
+        "error",
+        "incident_notification_enqueue_failed",
+        "Incident notification enqueue failed",
+        {
+          jobId: job.jobId,
+          incidentId: job.incidentId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
 
       throw error;
     }
 
-    log("info", "incident_notification_enqueued", {
-      jobId: job.jobId,
-      incidentId: job.incidentId,
-      queueName,
-    });
+    logEvent(
+      "info",
+      "incident_notification_enqueued",
+      "Incident notification enqueued",
+      { jobId: job.jobId, incidentId: job.incidentId, queueName },
+    );
 
     return job;
   };
