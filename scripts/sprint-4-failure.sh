@@ -90,6 +90,32 @@ wait_for_log() {
   fail "$service logs did not match: $pattern"
 }
 
+# AI: Review fix verifies that Docker observes the injected health transition.
+wait_for_dispatch_health() {
+  local expected_status="$1"
+  local container_id
+  local health_status
+
+  container_id="$("${compose[@]}" ps -q "$dispatch_service")"
+  [[ -n "$container_id" ]] || fail "could not resolve $dispatch_service container"
+
+  for _attempt in {1..45}; do
+    health_status="$(
+      docker inspect \
+        --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' \
+        "$container_id" 2>/dev/null || true
+    )"
+
+    if [[ "$health_status" == "$expected_status" ]]; then
+      return
+    fi
+
+    sleep 1
+  done
+
+  fail "$dispatch_service health was $health_status instead of $expected_status"
+}
+
 phase "Resolve host ports (stack must already be running: docker compose up --build -d)"
 dispatch_base_url="http://127.0.0.1:$(published_port "$dispatch_service" 3000)"
 incident_base_url="http://127.0.0.1:$(published_port incident-ambassador 3000)"
@@ -109,7 +135,8 @@ error_health="$(health_status)"
   fail "faulted POST /dispatches returned $error_dispatch instead of 503"
 [[ "$error_health" == "503" ]] ||
   fail "faulted /health returned $error_health instead of 503"
-printf 'PASS dispatch returns 503 and /health reports 503 (Docker marks it unhealthy)\n'
+wait_for_dispatch_health unhealthy
+printf 'PASS dispatch returns 503 and Docker marks it unhealthy\n'
 
 phase "Confirm the rest of the system keeps working during the dispatch fault"
 incident_response="$(curl -fsS -X POST "$incident_base_url/incidents" \
@@ -118,9 +145,10 @@ incident_response="$(curl -fsS -X POST "$incident_base_url/incidents" \
 incident_id="$(jq -er '.incidentId' <<<"$incident_response")"
 wait_for_log "$worker_service" \
   "\"event\":\"incident_notification_completed\".*\"incidentId\":\"$incident_id\""
-routing_health="$(curl -sS -o /dev/null -w '%{http_code}' "$routing_base_url/health")"
-[[ "$routing_health" == "200" ]] ||
-  fail "routing ambassador /health was $routing_health during the dispatch fault"
+routing_response="$(curl -fsS \
+  "$routing_base_url/route?latitude=42.3868&longitude=-72.5301&emergencyType=medical")"
+jq -e '.servedBy and .regionId' <<<"$routing_response" >/dev/null ||
+  fail "routing response was missing servedBy or regionId during the dispatch fault"
 printf 'PASS incident creation, async notification, and routing all still work\n'
 
 phase "Switch to slow fault: latency spikes but /health stays a fast 200"
@@ -136,8 +164,9 @@ phase "Restore: turn the fault off and confirm recovery"
 set_fault off >/dev/null
 restore_needed=0
 [[ "$(health_status)" == "200" ]] || fail "post-restore /health was not 200"
+wait_for_dispatch_health healthy
 [[ "$(dispatch_status)" == "201" ]] || fail "post-restore POST /dispatches was not 201"
-printf 'PASS dispatch recovered: /health 200 and POST /dispatches 201\n'
+printf 'PASS dispatch recovered: Docker healthy and POST /dispatches 201\n'
 
 phase "Sprint 4 scripted failure scenario complete"
 printf 'PASS responder-dispatch-service fault injection verified end to end\n'

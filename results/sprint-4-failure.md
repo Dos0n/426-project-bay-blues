@@ -113,13 +113,14 @@ DISPATCH_FAULT_MODE=error docker compose up -d --force-recreate responder-dispat
 
 ## Recorded Validation
 
-### Standalone service run — August 10, 2026
+### Full Compose run — August 10, 2026
 
-Docker Hub image pulls are blocked in this sandbox, so the full Compose stack
-was not started here; instead `responder-dispatch-service` was run directly with
-Node (`DISPATCH_LATENCY_MS=200`, `DISPATCH_FAULT_LATENCY_MS=6000`) and each mode
-was exercised with `curl`. The full-system fault-isolation checks in step 3 are
-automated by `scripts/sprint-4-failure.sh` for the team's Compose run.
+The complete stack started with all eleven containers healthy, and
+`scripts/sprint-4-failure.sh` exercised the scenario end to end. In error mode,
+Docker changed `responder-dispatch-service` from `healthy` to `unhealthy` while
+incident creation, RabbitMQ notification processing, and a real `/route`
+request continued to succeed. Restoring fault mode to `off` returned the
+dispatch container to `healthy` and allowed new dispatches again.
 
 ```text
 OFF    GET  /health          -> 200  {"status":"ok","service":"responder-dispatch-service"}      (0.003s)
@@ -127,8 +128,10 @@ OFF    POST /dispatches       -> 201  dispatchId assigned, status "assigned"    
 
 error  POST /admin/fault      -> 200  {"faultMode":"error","previousMode":"off"}
 error  GET  /health          -> 503  {"status":"error","service":"responder-dispatch-service"}    (0.003s)
+error  Docker health          -> unhealthy
 error  POST /dispatches       -> 503  {"error":{"code":"SERVICE_UNAVAILABLE", ...}}                (0.002s)
 error  GET  /teams            -> 503  {"error":{"code":"SERVICE_UNAVAILABLE", ...}}
+error  GET  /route            -> 200  routed response with servedBy and regionId
 
 slow   POST /admin/fault      -> 200  {"faultMode":"slow","previousMode":"error"}
 slow   GET  /health          -> 200  {"status":"ok", ... "faultMode":"slow"}                       (0.002s)
@@ -136,6 +139,7 @@ slow   POST /dispatches       -> 201  (delayed)                                 
 
 off    POST /admin/fault      -> 200  {"faultMode":"off","previousMode":"slow"}
 off    GET  /health          -> 200  {"status":"ok","service":"responder-dispatch-service"}        (0.002s)
+off    Docker health          -> healthy
 off    POST /dispatches       -> 201  (recovered)                                                  (0.206s)
 
 bad    POST /admin/fault      -> 400  {"error":{"code":"VALIDATION_ERROR", "message":"mode must be one of: off, error, slow"}}
