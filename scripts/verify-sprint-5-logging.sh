@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AI: This file was generated with AI assistance for Sprint 5 structured logging verification. See AI-DISCLOSURE.md and ai/chats/2026-08-10-231436-sprint-5-json-logging.jsonl.
+# AI: This file was generated and later modified with AI assistance for Sprint 5 structured logging verification. See AI-DISCLOSURE.md, ai/chats/2026-08-10-231436-sprint-5-json-logging.jsonl, and ai/chats/2026-08-11-080842-sprint-5-json-logging-final-fixes.jsonl.
 set -euo pipefail
 
 readonly health_wait_attempts="${HEALTH_WAIT_ATTEMPTS:-90}"
@@ -85,6 +85,46 @@ request_from_service() {
         process.exit(1);
       }
     '
+}
+
+# AI: Sprint 5 Task 3 exercises the dispatch fault path so legacy nonconforming event logs cannot escape verification. See AI-DISCLOSURE.md and ai/chats/2026-08-11-080842-sprint-5-json-logging-final-fixes.jsonl.
+set_dispatch_fault_mode() {
+  local mode="$1"
+
+  "${compose[@]}" exec -T \
+    -e VERIFY_FAULT_MODE="$mode" \
+    responder-dispatch-service \
+    node --input-type=module -e '
+      const mode = process.env.VERIFY_FAULT_MODE;
+      const response = await fetch("http://127.0.0.1:3000/admin/fault", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+
+      if (response.status !== 200) {
+        console.error(`Expected HTTP 200, received ${response.status}`);
+        process.exit(1);
+      }
+
+      const body = await response.json();
+
+      if (body.faultMode !== mode) {
+        console.error(`Expected fault mode ${mode}, received ${body.faultMode}`);
+        process.exit(1);
+      }
+    '
+}
+
+exercise_dispatch_fault_logging() {
+  set_dispatch_fault_mode error
+
+  if ! request_from_service responder-dispatch-service "/teams" 503; then
+    set_dispatch_fault_mode off || true
+    fail "responder-dispatch-service did not return the injected 503"
+  fi
+
+  set_dispatch_fault_mode off
 }
 
 create_incident() {
@@ -192,6 +232,33 @@ validate_service_logs() {
         .path == "/gate-3-not-found" and
         .statusCode == 404 and
         .level == "warn"
+      ) and
+      (if $service == "responder-dispatch-service" then
+        any(.[];
+          .message == "Dispatch fault mode changed" and
+          .event == "dispatch_fault_mode_changed" and
+          .previousMode == "off" and
+          .faultMode == "error" and
+          .level == "warn"
+        ) and
+        any(.[];
+          .message == "Dispatch fault injected" and
+          .event == "dispatch_fault_injected" and
+          .faultMode == "error" and
+          .method == "GET" and
+          .path == "/teams" and
+          .level == "warn"
+        ) and
+        any(.[];
+          .message == "HTTP request completed" and
+          .method == "GET" and
+          .path == "/teams" and
+          .statusCode == 503 and
+          .level == "error"
+        )
+      else
+        true
+      end
       )
     ' >/dev/null; then
     "${compose[@]}" logs --no-color "$service" >&2 || true
@@ -266,6 +333,10 @@ wait_for_incident_event \
   "$incident_id"
 printf 'PASS asynchronous incident events for %s\n' "$incident_id"
 
+phase "Exercise responder fault logging"
+exercise_dispatch_fault_logging
+printf 'PASS responder fault events and injected 503\n'
+
 phase "Validate every custom-service log line"
 for service in "${custom_services[@]}"; do
   validate_service_logs "$service"
@@ -275,4 +346,4 @@ phase "Verify Prometheus regression"
 wait_for_prometheus
 
 printf '\nPASS Sprint 5 structured logging verification complete\n'
-# AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-10-231436-sprint-5-json-logging.jsonl.
+# AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/2026-08-10-231436-sprint-5-json-logging.jsonl, and ai/chats/2026-08-11-080842-sprint-5-json-logging-final-fixes.jsonl.

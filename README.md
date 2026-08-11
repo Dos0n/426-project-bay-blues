@@ -1,4 +1,4 @@
-<!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md, ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl, and ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md. -->
+<!-- AI: This file was substantially modified with AI assistance. See AI-DISCLOSURE.md, ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl, ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md, and ai/chats/2026-08-11-080842-sprint-5-json-logging-final-fixes.jsonl. -->
 # Blue Light
 
 A simulated distributed emergency-response system built by Team 9 for COMPSCI
@@ -113,6 +113,32 @@ rate (% non-2xx), and p95 latency in milliseconds for
 `regional-routing-ambassador` `GET /route`. Generate a little `/route` traffic
 if the panels look empty after a fresh start.
 
+<!-- AI: Sprint 5 Task 3 structured logging usage and verification documentation was added with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-11-080842-sprint-5-json-logging-final-fixes.jsonl. -->
+## Structured JSON Logging
+
+Every custom service writes one JSON object per log line. All entries contain
+`timestamp`, `level`, `message`, and `service`. Completed HTTP request entries
+also contain `method`, `path`, `statusCode`, and `responseTimeMs`. Domain event
+fields such as `event`, `incidentId`, `workerId`, and `faultMode` remain
+available when relevant.
+
+Inspect and parse one service's logs with:
+
+```bash
+docker compose logs --no-color --no-log-prefix incident-service | jq -c .
+```
+
+Run the committed end-to-end logging verification from the repository root:
+
+```bash
+scripts/verify-sprint-5-logging.sh
+```
+
+The verifier recreates the Compose stack, exercises successful, unmatched,
+fault-injected, and asynchronous paths across all eight custom containers,
+rejects any non-JSON service line, validates the required fields, and confirms
+that all eight Prometheus scrape targets remain up.
+
 ## Environment Variables
 
 All variables are optional. When a variable is missing, Compose uses the local
@@ -150,4 +176,4 @@ default shown below.
 - [Project Description](docs/PROJECT.md)
 - [Initial Service List](docs/SERVICES.md)
 - [Service Level Objectives](docs/SLO.md)
-<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl, and ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md. -->
+<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl, ai/chats/sradhakrishnan/sprint-5-task-2-AI-DISCLOSURE.md, and ai/chats/2026-08-11-080842-sprint-5-json-logging-final-fixes.jsonl. -->

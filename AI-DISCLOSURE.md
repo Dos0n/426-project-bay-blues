@@ -7957,4 +7957,84 @@ That command must run from the project worktree so the copy lands in its `ai/cha
 ~~~~~~
 
 
+## Sprint 5 Task 3: Final Structured-Logging Fixes
+
+Raw Codex transcript: `ai/chats/2026-08-11-080842-sprint-5-json-logging-final-fixes.jsonl`
+
+### Scope and outputs
+
+- Replaced the responder dispatch service's remaining direct console-based fault-event logger with the shared structured logger, adding the required timestamp and message while preserving fault diagnostics.
+- Extended `scripts/verify-sprint-5-logging.sh` to toggle injected error mode, require the resulting 503, and assert both fault-event records and the error-level HTTP completion record.
+- Added the structured logging schema, inspection command, and verification command to `README.md`.
+- No strict JSON manifest or lock file was modified.
+
+### Verification
+
+- JavaScript syntax, Bash syntax, `git diff --check`, and the direct-console audit passed.
+- The complete Compose verifier passed all eight custom containers, asynchronous incident events, dispatch fault events and injected 503 behavior, and Prometheus targets 8/8 up.
+
+### Verbatim relevant exchange
+
+#### 230. User prompt
+
+~~~~~~text
+Are there any remaining items on task 3?
+~~~~~~
+
+#### 231. Assistant response
+
+~~~~~~text
+I’ll compare the rebased Task 3 branch against the exact Sprint 5 logging requirements and the original four-gate plan, separating grading requirements from PR/documentation cleanup.
+~~~~~~
+
+#### 232. Assistant response
+
+~~~~~~text
+Task 3 is close, but one grading defect remains.
+
+- Blocker: [responder-dispatch-service/src/index.js](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/responder-dispatch-service/src/index.js:73) still has a legacy `logEvent()` that writes directly through `console.log/error`. Its fault-injection events lack the required `timestamp` and `message`.
+- Verification gap: [verify-sprint-5-logging.sh](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/scripts/verify-sprint-5-logging.sh:1) doesn’t exercise those fault-injection events, which is why the full check passed despite the defect.
+- Planned documentation: the structured-logging usage/schema and verification command have not been added to [README.md](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/README.md:1). This is not explicitly required by Task 3’s rubric, but it was part of our approved Gate 4 plan.
+- Delivery: the rebased branch is still local—no push or PR yet.
+
+Everything else passes: all services emit JSON request logs with the required fields, the recovered AI disclosure is complete, the Compose stack is healthy, and Prometheus remains 8/8 up.
+~~~~~~
+
+#### 233. User prompt
+
+~~~~~~text
+Ok implement the remaining blockers
+~~~~~~
+
+#### 234. Assistant response
+
+~~~~~~text
+I’ll close the actual logging defect, extend the verifier so it can’t regress, and add the missing README usage documentation. I’m applying the repository’s AI-disclosure skill because these are AI-assisted coursework changes; after runtime verification I’ll update the transcript artifacts and commit the completed cleanup without pushing.
+~~~~~~
+
+#### 235. Assistant response
+
+~~~~~~text
+The fix is scoped to three files:
+
+- Remove the dispatch service’s legacy console logger and route its fault events through the shared JSON logger.
+- Exercise both fault-mode changes and an injected 503 in the verifier, with explicit assertions for those event records.
+- Document the logging schema, inspection command, and verifier in the README.
+
+No API contract, dependency, Compose, or infrastructure change is needed.
+~~~~~~
+
+#### 236. Assistant response
+
+~~~~~~text
+The static audit is clean: the legacy logger is gone, there are no direct console calls in custom-service source, JavaScript and Bash syntax pass, and the diff is limited to the intended three files. The disclosure skill added local `AI:` markers to each changed section; I’m now running the stricter end-to-end verifier before freezing the transcript references.
+~~~~~~
+
+#### 237. Assistant response
+
+~~~~~~text
+The functional fix now passes the complete grader-facing run, including the new fault-mode change and injected-503 assertions; all eight services still satisfy the JSON contract and Prometheus remains 8/8 up. The disclosure skill’s final action is now taking effect: I’m saving this session’s raw JSONL, attaching exact transcript references to the three modified files, and appending the relevant exchange verbatim before committing.
+~~~~~~
+
+
 <!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; the Austin and Bruce Sprint 3 completion sections intentionally have no JSONL at the student's direction. -->

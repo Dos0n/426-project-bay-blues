@@ -71,21 +71,6 @@ const faultLatencyMs = readBoundedInteger(
   60000,
 );
 
-const logEvent = (level, fields) => {
-  const entry = JSON.stringify({
-    level,
-    service: "responder-dispatch-service",
-    ...fields,
-  });
-
-  if (level === "error") {
-    console.error(entry);
-    return;
-  }
-
-  console.log(entry);
-};
-
 const statusOrder = ["assigned", "en_route", "on_scene", "resolved"];
 
 const teamsUrl = new URL("../data/response-teams.json", import.meta.url);
@@ -209,7 +194,8 @@ app.post("/admin/fault", (request, response) => {
   const previousMode = faultMode;
   faultMode = requestedMode;
 
-  logEvent("warn", {
+  // AI: Sprint 5 Task 3 routes fault-mode changes through the shared logger so required fields are always present. See AI-DISCLOSURE.md and ai/chats/2026-08-11-080842-sprint-5-json-logging-final-fixes.jsonl.
+  log("warn", "Dispatch fault mode changed", {
     event: "dispatch_fault_mode_changed",
     previousMode,
     faultMode,
@@ -227,7 +213,8 @@ app.use((request, response, next) => {
   }
 
   if (faultMode === "error") {
-    logEvent("warn", {
+    // AI: Sprint 5 Task 3 routes injected-fault events through the shared logger while preserving diagnostic fields. See AI-DISCLOSURE.md and ai/chats/2026-08-11-080842-sprint-5-json-logging-final-fixes.jsonl.
+    log("warn", "Dispatch fault injected", {
       event: "dispatch_fault_injected",
       faultMode,
       method: request.method,
@@ -243,7 +230,8 @@ app.use((request, response, next) => {
     return;
   }
 
-  logEvent("warn", {
+  // AI: Sprint 5 Task 3 applies the same structured event contract to injected slow faults. See AI-DISCLOSURE.md and ai/chats/2026-08-11-080842-sprint-5-json-logging-final-fixes.jsonl.
+  log("warn", "Dispatch fault injected", {
     event: "dispatch_fault_injected",
     faultMode,
     method: request.method,
