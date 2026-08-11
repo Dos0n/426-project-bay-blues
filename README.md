@@ -9,10 +9,11 @@ notification work.
 ## Team Roster
 
 | GitHub Username | UMass Email |
-| --- | --- |
-| austinfairbanks | afairbanks@umass.edu |
-| Dos0n | bdo@umass.edu |
-| ShriRadhakrishnan1 | sradhakrishn@umass.edu |
+|-----------------|-------------|
+|austinfairbanks|afairbanks@umass.edu|
+|Dos0n|bdo@umass.edu
+|ShriRadhakrishnan1|sradhakrishn@umass.edu|
+|bdo-png|bdo@umass.edu|
 
 ## Domain Description
 

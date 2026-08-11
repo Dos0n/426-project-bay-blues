@@ -28,6 +28,21 @@ const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   return value;
 };
 
+// AI: Sprint 4 Task 3 — validate the fault-injection mode against a fixed set at startup.
+const readEnumValue = (name, defaultValue, allowedValues) => {
+  const rawValue = process.env[name];
+
+  if (rawValue === undefined) {
+    return defaultValue;
+  }
+
+  if (!allowedValues.has(rawValue)) {
+    throw new Error(`${name} must be one of: ${[...allowedValues].join(", ")}`);
+  }
+
+  return rawValue;
+};
+
 const app = express();
 const port = readBoundedInteger("PORT", 3000, 1, 65535);
 const dispatchLatencyMs = readBoundedInteger(
@@ -40,6 +55,32 @@ const dispatchLatencyMs = readBoundedInteger(
 const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
   "responder-dispatch-service",
 );
+
+// AI: Sprint 4 Task 3 — on-demand fault injection for the scripted failure scenario.
+// faultMode is mutable so POST /admin/fault can toggle it at runtime without a restart.
+const faultModes = new Set(["off", "error", "slow"]);
+let faultMode = readEnumValue("DISPATCH_FAULT_MODE", "off", faultModes);
+const faultLatencyMs = readBoundedInteger(
+  "DISPATCH_FAULT_LATENCY_MS",
+  6000,
+  0,
+  60000,
+);
+
+const logEvent = (level, fields) => {
+  const entry = JSON.stringify({
+    level,
+    service: "responder-dispatch-service",
+    ...fields,
+  });
+
+  if (level === "error") {
+    console.error(entry);
+    return;
+  }
+
+  console.log(entry);
+};
 
 const statusOrder = ["assigned", "en_route", "on_scene", "resolved"];
 
@@ -121,11 +162,92 @@ app.use(express.json({ limit: "100kb" }));
 
 app.get("/metrics", serveMetrics);
 
+// AI: Sprint 4 Task 3 — health mirrors the injected fault so orchestration can see it.
+// error -> 503 (Docker marks the container unhealthy); slow -> stays a fast 200
+// ("healthy but slow"); off -> the original {status:"ok"} response unchanged.
 app.get("/health", (_request, response) => {
+  if (faultMode === "error") {
+    response.status(503).json({
+      status: "error",
+      service: "responder-dispatch-service",
+      faultMode,
+    });
+    return;
+  }
+
   response.status(200).json({
     status: "ok",
     service: "responder-dispatch-service",
+    ...(faultMode === "off" ? {} : { faultMode }),
   });
+});
+
+// AI: Sprint 4 Task 3 — admin toggle for the fault mode. Registered above the fault
+// middleware so it stays reachable to turn the fault back off on demand.
+app.get("/admin/fault", (_request, response) => {
+  response.status(200).json({ faultMode, faultLatencyMs });
+});
+
+app.post("/admin/fault", (request, response) => {
+  const body = request.body === undefined ? {} : request.body;
+  const requestedMode = body.mode;
+
+  if (!faultModes.has(requestedMode)) {
+    response.status(400).json({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: `mode must be one of: ${[...faultModes].join(", ")}`,
+      },
+    });
+    return;
+  }
+
+  const previousMode = faultMode;
+  faultMode = requestedMode;
+
+  logEvent("warn", {
+    event: "dispatch_fault_mode_changed",
+    previousMode,
+    faultMode,
+  });
+
+  response.status(200).json({ faultMode, previousMode, faultLatencyMs });
+});
+
+// AI: Sprint 4 Task 3 — inject the configured fault for the business endpoints only.
+// error returns 503 immediately; slow adds faultLatencyMs on top of DISPATCH_LATENCY_MS.
+app.use((request, response, next) => {
+  if (faultMode === "off") {
+    next();
+    return;
+  }
+
+  if (faultMode === "error") {
+    logEvent("warn", {
+      event: "dispatch_fault_injected",
+      faultMode,
+      method: request.method,
+      path: request.originalUrl,
+    });
+
+    response.status(503).json({
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "responder-dispatch-service is in injected error fault mode",
+      },
+    });
+    return;
+  }
+
+  logEvent("warn", {
+    event: "dispatch_fault_injected",
+    faultMode,
+    method: request.method,
+    path: request.originalUrl,
+    extraLatencyMs: faultLatencyMs,
+  });
+
+  setTimeout(next, faultLatencyMs);
 });
 
 app.get("/teams", (_request, response) => {
@@ -277,6 +399,8 @@ app.listen(port, () => {
       level: "info",
       message: "Responder dispatch service started",
       port,
+      // AI: Sprint 4 Task 3 — expose the boot-time fault mode for observability.
+      faultMode,
     }),
   );
 });
