@@ -7327,4 +7327,714 @@ ok thats calm task 1 pr can be mounted then. first, do the required ai disclosur
 The PR is already open, but I agree the disclosure should be refreshed before treating it as ready. I’m applying the disclosure skill again: replace the earlier mid-session JSONL snapshot with a current full raw session, preserve the Markdown transcript beginning at “ok sick lets plan out PR 1,” append every later relevant user/assistant message verbatim, and update all source references to the final JSONL filename.
 ``````
 
+## Sprint 5 Task 3: Structured JSON Logging (Recovered Session)
+
+### Recovery and work summary
+
+The original Codex chat stopped loading in the client, but its raw session log was recovered intact from the local Codex session store and copied without modification to `ai/chats/2026-08-10-231436-sprint-5-json-logging.jsonl`.
+
+Inputs and approvals:
+
+- Keep the work strictly within Sprint 5 Task 3, stacked on Task 1.
+- Leave Task 2 (Grafana) and Task 4 (final k6 test/report) out of scope.
+- Use small approval gates: structured service events, completed HTTP request logs, Compose-level verification, then documentation/disclosure.
+- Preserve existing event identifiers and Prometheus behavior, introduce no logging dependency, and retain the Sprint 4 async workflow.
+
+Outputs completed before recovery:
+
+- Added dependency-free JSON loggers to all six logical custom services and routed service, queue, cache, proxy, lifecycle, and error events through them.
+- Changed custom-service container entrypoints to run Node directly so npm banners do not introduce non-JSON lines.
+- Reused the existing Prometheus response timer to emit completed-request records with method, path, status code, response time, and severity derived from status.
+- Added `scripts/verify-sprint-5-logging.sh` to recreate the Compose services, validate all eight custom containers, exercise 200/404 paths and an asynchronous incident, reject non-JSON log lines, and recheck Prometheus.
+- Verified all eight custom containers, the async enqueue/completion path, and eight healthy Prometheus targets.
+
+The recovered transcript names the commit hashes created during that session. The branch was rewritten afterward; the corresponding commits at the time of this recovery are `4b02223`, `b1fb97d`, and `b92f0ec`.
+
+### AI-assisted files for Task 3
+
+- Generated: each service's `src/logger.js` and `scripts/verify-sprint-5-logging.sh`.
+- Modified: all six service `src/index.js` files, `incident-service/src/notification-publisher.js`, all six service Dockerfiles, and all six `src/http-metrics.js` files.
+- No strict JSON manifest or lock file was changed by the three Task 3 commits.
+
+### Verbatim recovered exchange
+
+The following user prompts and assistant responses were extracted verbatim from `ai/chats/2026-08-10-231436-sprint-5-json-logging.jsonl`. The automatically injected repository instructions are preserved in the raw JSONL but omitted here because they are repository context rather than a user-authored prompt.
+
+#### 203. User prompt
+
+~~~~~~text
+Lock yourself in the context of spring 5 task 3. we have done trask 1,m but not 2 or 4. i want you to plan aa pr in a few commmits that will mount ontop of the task 1 pr and implement the json loggin neccesary
+~~~~~~
+
+#### 204. Assistant response
+
+~~~~~~text
+I’ll anchor this strictly to Sprint 5, Task 3, treating Task 1 as the base PR and Tasks 2/4 as out of scope. I’ll inspect the sprint prompt, Task 1’s current implementation, and repository history, then propose a small stacked-PR commit plan for the required JSON logging.
+~~~~~~
+
+#### 205. Assistant response
+
+~~~~~~text
+The repository confirms Sprint 5 Task 1 already exists as a separate stacked base branch (`sprint-5-task-1-prometheus`) and contains Prometheus instrumentation across all custom services. I’m now using that branch’s worktree as the planning baseline so the logging PR won’t accidentally absorb the already-merged Sprint 4 work or overlap Sprint 5 Tasks 2 and 4.
+~~~~~~
+
+#### 206. Assistant response
+
+~~~~~~text
+Task 3’s exact acceptance boundary is now clear: all six custom services must emit one JSON object per log line with `timestamp`, `level`, and `message`; completed-request lines additionally need method, path, status code, and response time. The cleanest design is dependency-free and reuses Task 1’s existing response-finish timing hook, avoiding a second timer/listener or a new logging package.
+~~~~~~
+
+#### 207. Assistant response
+
+~~~~~~text
+Scope locked: Sprint 5 Task 3 only, stacked on Task 1. Tasks 2 (Grafana) and 4 (final k6/report) remain untouched.
+
+The base is `sprint-5-task-1-prometheus` at `32a1d0a`. Create `sprint-5-task-3-json-logging` from that commit and open the PR against the Task 1 branch initially.
+
+## Proposed commits
+
+1. `feat(logging): standardize structured service events`
+
+   - Add a dependency-free `logger.js` to each of the six service codebases.
+   - Every entry includes:
+     - `timestamp`
+     - `level`
+     - `message`
+     - `service`
+   - Preserve useful existing fields such as `event`, `workerId`, `replicaId`, incident IDs, retry attempts, and cache status.
+   - Replace every direct `console.log`/`console.error` call, including the notification publisher.
+   - Change custom-service Docker entrypoints from `npm start` to `node src/index.js`; otherwise npm emits non-JSON banner lines into Compose logs.
+   - Do not add dependencies or modify lockfiles.
+
+2. `feat(logging): emit completed HTTP request logs`
+
+   - Extend Task 1’s six `http-metrics.js` modules to log from the existing `response.finish` callback.
+   - Reuse the same timer used by Prometheus rather than adding another middleware timer.
+   - Emit:
+     ```json
+     {
+       "timestamp": "...",
+       "level": "info",
+       "message": "HTTP request completed",
+       "service": "incident-service",
+       "method": "GET",
+       "path": "/health",
+       "statusCode": 200,
+       "responseTimeMs": 1.234
+     }
+     ```
+   - Use `info` for 2xx/3xx, `warn` for 4xx, and `error` for 5xx.
+   - Cover `/health`, `/metrics`, normal endpoints, unmatched routes, and error responses.
+   - Keep Prometheus metric names, labels, and normalized routes unchanged.
+   - Preserve ambassador proxy-attempt logs separately from final request-completion logs.
+
+3. `test(logging): verify JSON output across Compose services`
+
+   - Add `scripts/verify-sprint-5-logging.sh`.
+   - Exercise all eight custom-service containers—the three routing replicas share one implementation.
+   - Verify every captured custom-service line parses with `jq`.
+   - Require the common fields on every entry.
+   - Require method, path, numeric status code, and numeric response time on request entries.
+   - Confirm at least one request entry exists for every custom container.
+   - Preserve and run [verify-sprint-4-async.sh](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/scripts/verify-sprint-4-async.sh), since its assertions depend on existing queue-event fields.
+
+4. `docs(logging): document usage and disclose AI assistance`
+
+   - Add a structured-logging section to [README.md](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/README.md) with `docker compose logs --no-log-prefix <service> | jq`.
+   - Document the verification command and log schema.
+   - Add the required `AI:` comments to modified code.
+   - Update `AI-DISCLOSURE.md` verbatim and save the matching raw JSONL with `scripts/save-chat.sh "sprint-5-json-logging"`.
+
+## Validation gate
+
+Run from the Gantry devcontainer:
+
+```bash
+docker compose config
+docker compose up -d --build
+docker compose ps
+scripts/verify-sprint-5-logging.sh
+scripts/verify-sprint-4-async.sh
+```
+
+Also confirm all eight Prometheus targets remain healthy because the request timing modules are being modified.
+
+## Explicit exclusions
+
+This PR will not add:
+
+- Grafana containers, provisioning, or dashboards.
+- Sprint 5 k6 scripts or load-test results.
+- Architecture changes or new services.
+- Metric schema changes.
+- API response or business-logic changes.
+
+After Task 1 merges, retarget the stacked Task 3 PR from `sprint-5-task-1-prometheus` to `main` and verify that its diff contains only these four commits.
+~~~~~~
+
+#### 208. User prompt
+
+~~~~~~text
+ok propose for gate 1
+~~~~~~
+
+#### 209. Assistant response
+
+~~~~~~text
+Gate 1 should be one behavior-preserving commit: standardize all non-request application logs before adding HTTP completion logging.
+
+## Gate 1 proposal
+
+Commit:
+
+```text
+feat(logging): standardize structured service events
+```
+
+### Logger contract
+
+Add `src/logger.js` to each of the six service directories. No dependency is needed.
+
+```js
+const createLogger = (service) => {
+  const log = (level, message, fields = {}) => {
+    const entry = {
+      ...fields,
+      timestamp: new Date().toISOString(),
+      level,
+      message,
+      service,
+    };
+
+    const output = `${JSON.stringify(entry)}\n`;
+    const stream = level === "error" ? process.stderr : process.stdout;
+    stream.write(output);
+  };
+
+  return log;
+};
+
+export { createLogger };
+```
+
+Required fields are written after `fields`, preventing callers from accidentally overriding them.
+
+### Files changed
+
+Add:
+
+- `incident-service/src/logger.js`
+- `incident-ambassador/src/logger.js`
+- `regional-routing-service/src/logger.js`
+- `regional-routing-ambassador/src/logger.js`
+- `responder-dispatch-service/src/logger.js`
+- `emergency-notification-worker/src/logger.js`
+
+Modify:
+
+- All six `src/index.js` files.
+- `incident-service/src/notification-publisher.js`.
+- All six Dockerfiles.
+
+### Event-log conversion
+
+Each service creates one logger:
+
+```js
+const log = createLogger("incident-service");
+```
+
+Existing machine-readable event identifiers remain available:
+
+```js
+log("info", "Incident notification enqueued", {
+  event: "incident_notification_enqueued",
+  jobId,
+  incidentId,
+  queueName,
+});
+```
+
+This preserves the Sprint 4 verification script, which searches for `event` and incident identifiers.
+
+Existing contextual fields remain intact:
+
+- Worker: `workerId`, job and incident IDs, rejection reason.
+- Routing service: `replicaId`, cache status, Redis errors.
+- Ambassadors: method, path, attempt, upstream status, duration.
+- Incident service: queue events and startup failures.
+- Dispatch service: startup and request-processing failures.
+
+### Docker entrypoint correction
+
+Change each custom-service Dockerfile from:
+
+```dockerfile
+CMD ["npm", "start"]
+```
+
+to:
+
+```dockerfile
+CMD ["node", "src/index.js"]
+```
+
+This suppresses npm’s non-JSON startup banner in `docker compose logs`. Package scripts remain available for local development.
+
+### Gate 1 acceptance checks
+
+```bash
+docker compose config
+
+for file in */src/*.js; do
+  node --check "$file"
+done
+
+rg -n 'console\\.(log|info|warn|error)' \
+  incident-service/src \
+  incident-ambassador/src \
+  regional-routing-service/src \
+  regional-routing-ambassador/src \
+  responder-dispatch-service/src \
+  emergency-notification-worker/src
+```
+
+The final search should find console usage only if deliberately contained inside the logger; using `process.stdout` and `process.stderr` should make it empty.
+
+Then, in Gantry:
+
+```bash
+docker compose up -d --build
+docker compose ps
+scripts/verify-sprint-4-async.sh
+```
+
+Finally, inspect startup and queue logs:
+
+```bash
+docker compose logs --no-color --no-log-prefix incident-service |
+  jq -c .
+
+docker compose logs --no-color --no-log-prefix emergency-notification-worker |
+  jq -c .
+```
+
+Gate 1 passes when:
+
+- Every custom service becomes healthy.
+- Every application-generated line is valid JSON.
+- Every entry contains string `timestamp`, `level`, `message`, and `service`.
+- Sprint 4 queue-event verification still passes.
+- No request-completion logging, Grafana, or k6 work has entered the commit.
+~~~~~~
+
+#### 210. User prompt
+
+~~~~~~text
+looks good to me - commit and propose for gate 2
+~~~~~~
+
+#### 211. Assistant response
+
+~~~~~~text
+I’ll implement and commit only the approved Gate 1 on a new branch stacked from `sprint-5-task-1-prometheus`. Because this is AI-assisted course code, I’m applying the repository’s AI-disclosure workflow while making the change; after the commit I’ll return a concrete Gate 2 proposal without implementing it.
+~~~~~~
+
+#### 212. Assistant response
+
+~~~~~~text
+The disclosure skill adds one constraint to Gate 1: every new logger and each modified code section will carry an `AI:` marker now; the full Markdown transcript and raw JSONL will still remain in the dedicated final documentation commit from the approved PR plan, so this functional commit stays reviewable.
+~~~~~~
+
+#### 213. Assistant response
+
+~~~~~~text
+Gate 1 is now implemented across the six service codebases. The existing queue `event` keys and diagnostic context were preserved, while npm’s startup banner was removed from container output; I’m checking syntax and reviewing the diff before running the Compose-level regression.
+~~~~~~
+
+#### 214. Assistant response
+
+~~~~~~text
+All eight custom-service containers are healthy, and every emitted Gate 1 line—including the three routing replicas—parses as JSON with the four required common fields. I’m running the existing Sprint 4 async regression now to confirm the logger refactor preserved queue-event behavior and its machine-readable identifiers.
+~~~~~~
+
+#### 215. Assistant response
+
+~~~~~~text
+The Sprint 4 regression passed all four scenarios: normal enqueue/consume, rejection of non-enqueuing requests, queued work while stopped, and redelivery after worker failure. I’m staging the Gate 1-only diff now for a final scope check, then I’ll create the approved commit.
+~~~~~~
+
+#### 216. Assistant response
+
+~~~~~~text
+Gate 1 is committed as `58ccdf6` on `sprint-5-task-3-json-logging`. The worktree is clean and the branch remains stacked directly on Task 1. It has not been pushed.
+
+Validation passed:
+
+- JavaScript syntax and Compose configuration.
+- All eight custom containers healthy.
+- Every current custom-service log line parsed as JSON with required common fields.
+- Full Sprint 4 async regression, including redelivery after worker failure.
+
+The Compose stack remains running.
+
+## Gate 2 proposal
+
+Commit:
+
+```text
+feat(logging): emit completed HTTP request logs
+```
+
+### Implementation
+
+Update all six `http-metrics.js` modules and their corresponding `index.js` initialization.
+
+Pass the Gate 1 logger into the existing metrics factory:
+
+```js
+createHttpMetrics("incident-service", log);
+```
+
+Inside the existing `response.once("finish")` callback, use the already-calculated elapsed time for both Prometheus and logging:
+
+```js
+const statusCode = response.statusCode;
+const level =
+  statusCode >= 500 ? "error" : statusCode >= 400 ? "warn" : "info";
+
+log(level, "HTTP request completed", {
+  method: request.method,
+  path: request.path,
+  statusCode,
+  responseTimeMs: Number(elapsedMilliseconds.toFixed(3)),
+});
+```
+
+Example output:
+
+```json
+{
+  "method": "GET",
+  "path": "/health",
+  "statusCode": 200,
+  "responseTimeMs": 1.234,
+  "timestamp": "2026-08-11T00:20:00.000Z",
+  "level": "info",
+  "message": "HTTP request completed",
+  "service": "incident-service"
+}
+```
+
+### Design boundaries
+
+- Reuse the Task 1 timer and `finish` listener—no duplicate middleware.
+- Log every completed request, including `/health`, `/metrics`, 404s, and errors.
+- Keep Prometheus names, labels, buckets, and normalized routes unchanged.
+- Do not log bodies, headers, credentials, or query parameters.
+- Ambassador proxy-attempt logs remain distinct from final HTTP completion logs.
+- No dependency, lockfile, Docker, Grafana, or k6 changes.
+
+### Gate 2 acceptance
+
+- Every custom container emits at least one `HTTP request completed` entry.
+- Each request entry contains correctly typed `method`, `path`, `statusCode`, and `responseTimeMs`.
+- 2xx requests log at `info`; 4xx requests log at `warn`.
+- All eight Prometheus targets remain `UP`.
+- Counters and histograms continue updating after requests.
+- All services remain healthy and existing API responses are unchanged.
+~~~~~~
+
+#### 217. User prompt
+
+~~~~~~text
+Looks good to me. implement, commit, andthen poropse gate 3
+~~~~~~
+
+#### 218. Assistant response
+
+~~~~~~text
+I’ll implement only the approved Gate 2: inject each Gate 1 logger into Task 1’s existing HTTP metrics factory and emit one completion record from the same `finish` callback. I’ll verify JSON fields, level mapping, service health, and unchanged Prometheus behavior before committing; Gate 3 will remain proposal-only.
+~~~~~~
+
+#### 219. Assistant response
+
+~~~~~~text
+The Gate 2 diff is limited to the six metrics modules and their six logger injections; syntax and Compose configuration pass. I’m rebuilding the custom images now, then I’ll issue controlled 2xx and 404 requests and validate the resulting JSON and Prometheus targets.
+~~~~~~
+
+#### 220. Assistant response
+
+~~~~~~text
+Gate 2 runtime validation now passes for every custom container: request fields are correctly typed, public 404s map to `warn`, and Prometheus remains 8/8 healthy with request-counter data. I’m doing the final staged-diff scope check and committing only these twelve files.
+~~~~~~
+
+#### 221. Assistant response
+
+~~~~~~text
+Gate 2 is committed as `aa20ba0`. The branch is clean, still stacked on Task 1, and has not been pushed.
+
+Validation passed:
+
+- All eight custom containers emitted correctly typed request logs.
+- 2xx responses logged at `info`.
+- 404 responses logged at `warn`.
+- Every custom service remained healthy.
+- Prometheus reported 8/8 targets `UP`.
+- Prometheus retained 19 request-counter series.
+
+## Gate 3 proposal
+
+Commit:
+
+```text
+test(logging): verify JSON logs across Compose services
+```
+
+Add executable [verify-sprint-5-logging.sh](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/scripts/verify-sprint-5-logging.sh).
+
+### Workflow
+
+The script will:
+
+1. Run:
+
+   ```bash
+   docker compose up -d --build --force-recreate
+   ```
+
+   This gives the verification a clean log boundary and prevents stale pre-Gate-1 npm banners from causing misleading failures.
+
+2. Wait for all eight custom containers to become healthy:
+
+   - Incident service and ambassador.
+   - Three routing replicas and routing ambassador.
+   - Dispatch service.
+   - Notification worker.
+
+3. Send requests directly from inside each container:
+
+   - `GET /health`, expecting 200.
+   - `GET /gate-3-not-found`, expecting 404.
+
+   Using `docker compose exec` avoids assumptions about overridden host ports.
+
+4. Submit one valid incident through the incident ambassador and capture its incident ID.
+
+5. Wait for matching asynchronous evidence:
+
+   - `incident_notification_enqueued` from the incident service.
+   - `incident_notification_completed` from the worker.
+
+6. Validate every custom-service log line with `jq`:
+
+   - Valid, single-line JSON object.
+   - Nonempty ISO timestamp, level, message, and service.
+   - Expected logical service name.
+   - Level is `info`, `warn`, or `error`.
+   - No npm or plain-text application output.
+
+7. Validate every request-completion record:
+
+   - String `method` and `path`.
+   - Integer `statusCode`.
+   - Nonnegative numeric `responseTimeMs`.
+   - 2xx/3xx → `info`.
+   - 4xx → `warn`.
+   - 5xx → `error`.
+   - Each container has the expected `/health` and `/gate-3-not-found` records.
+
+8. Confirm the observability regression:
+
+   - Prometheus reports exactly eight healthy custom-service targets.
+   - `http_requests_total` contains data after the requests.
+
+### Expected output
+
+```text
+PASS incident-service structured event and request logs
+PASS incident-ambassador structured event and request logs
+PASS regional-routing-service-a structured event and request logs
+...
+PASS asynchronous incident events
+PASS Prometheus targets 8/8 UP
+PASS Sprint 5 structured logging verification complete
+```
+
+### Boundaries
+
+Gate 3 adds only the verification script. It will not change service code, Compose configuration, README content, Grafana, k6, results, or disclosure files.
+~~~~~~
+
+#### 222. User prompt
+
+~~~~~~text
+ok what step where you at in this pr?
+~~~~~~
+
+#### 223. Assistant response
+
+~~~~~~text
+We completed and committed Gates 1 and 2. Gate 3 is proposed but not implemented.
+
+Current branch: `sprint-5-task-3-json-logging`
+
+Commits:
+
+- `58ccdf6` — standardized JSON event logs across all custom services.
+- `aa20ba0` — added completed HTTP request logs.
+
+Current state:
+
+- Worktree is clean.
+- Branch is stacked on `sprint-5-task-1-prometheus`.
+- Branch has not been pushed.
+- Compose stack is running and healthy.
+- Next step: implement and commit Gate 3’s verification script.
+- After Gate 3: Gate 4 documentation, full AI disclosure, raw JSONL, final regression, push, and stacked PR creation.
+~~~~~~
+
+#### 224. User prompt
+
+~~~~~~text
+propose gate 3 and implement. Also is the jsonl file somewhere for the first few gates? it doesnt seem ot be laoding in the chat
+~~~~~~
+
+#### 225. Assistant response
+
+~~~~~~text
+Gate 3’s approved scope is the executable Compose verification script: clean recreation, eight-service JSON validation, 2xx/404 level checks, one async incident, and an 8/8 Prometheus regression.
+
+The Task 3 JSONL is not in this branch yet—that is why you do not see it. Gates 1 and 2 have only inline `AI:` markers; the raw source session still lives under Codex’s session directory. I’ll locate it now, implement and commit Gate 3, and leave the full JSONL copy plus verbatim `AI-DISCLOSURE.md` update for the dedicated disclosure gate so the saved transcript includes this work too.
+~~~~~~
+
+#### 226. Assistant response
+
+~~~~~~text
+The current raw source session is present at `/Users/austinfairbanks/.codex/sessions/2026/08/10/rollout-2026-08-10T16-50-54-019fee16-1eba-77a2-be0a-54ad12b29b32.jsonl`. It has not yet been copied into `ai/chats/`, so the repository has nothing Task-3-specific for the chat viewer to load yet.
+
+I’m adding the Gate 3 verifier now; it will leave the stack running and will not alter service data or configuration.
+~~~~~~
+
+#### 227. Assistant response
+
+~~~~~~text
+The Gate 3 script passes Bash syntax (and ShellCheck where available). Its runtime path is deliberately stricter than the earlier manual checks: it recreates clean containers, exercises both status classes on every replica, verifies a newly created incident end-to-end, rejects any non-JSON custom-service line, and rechecks Prometheus. I’m running that exact grader-facing command now.
+~~~~~~
+
+#### 228. Assistant response
+
+~~~~~~text
+Gate 3 passed end to end exactly as proposed: clean recreation, all eight containers, per-container 200/404 checks, a newly enqueued and completed incident, strict parsing of every custom-service line, and Prometheus 8/8. I’m staging the single executable script for a scope check and Gate 3 commit.
+~~~~~~
+
+#### 229. Assistant response
+
+~~~~~~text
+Gate 3 is implemented and committed as `209fb6f`.
+
+The new [verification script](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/scripts/verify-sprint-5-logging.sh) passed its complete Compose run:
+
+- Eight custom containers validated.
+- Every custom-service line was valid JSON.
+- 200/404 request fields and levels passed.
+- Async enqueue/completion events passed.
+- Prometheus remained 8/8 `UP`.
+
+The branch is clean, unpushed, and contains three Task 3 commits.
+
+Regarding the JSONL: there is currently no Task-3-specific JSONL in `ai/chats/`, so the chat viewer cannot load one. The live raw source containing Gates 1–3 is [this Codex session](/Users/austinfairbanks/.codex/sessions/2026/08/10/rollout-2026-08-10T16-50-54-019fee16-1eba-77a2-be0a-54ad12b29b32.jsonl).
+
+The next disclosure gate should copy that explicit source after this response, ensuring the final Gate 3 exchange is included:
+
+```bash
+/Users/austinfairbanks/school/cs426/scripts/save-chat.sh \
+  "sprint-5-json-logging" \
+  /Users/austinfairbanks/.codex/sessions/2026/08/10/rollout-2026-08-10T16-50-54-019fee16-1eba-77a2-be0a-54ad12b29b32.jsonl
+```
+
+That command must run from the project worktree so the copy lands in its `ai/chats/` directory. The accompanying Gate 4 commit should also add the complete relevant exchange verbatim to `AI-DISCLOSURE.md` and update all new `AI:` references to the copied filename.
+~~~~~~
+
+
+## Sprint 5 Task 3: Final Structured-Logging Fixes
+
+Raw Codex transcript: `ai/chats/2026-08-11-080842-sprint-5-json-logging-final-fixes.jsonl`
+
+### Scope and outputs
+
+- Replaced the responder dispatch service's remaining direct console-based fault-event logger with the shared structured logger, adding the required timestamp and message while preserving fault diagnostics.
+- Extended `scripts/verify-sprint-5-logging.sh` to toggle injected error mode, require the resulting 503, and assert both fault-event records and the error-level HTTP completion record.
+- Added the structured logging schema, inspection command, and verification command to `README.md`.
+- No strict JSON manifest or lock file was modified.
+
+### Verification
+
+- JavaScript syntax, Bash syntax, `git diff --check`, and the direct-console audit passed.
+- The complete Compose verifier passed all eight custom containers, asynchronous incident events, dispatch fault events and injected 503 behavior, and Prometheus targets 8/8 up.
+
+### Verbatim relevant exchange
+
+#### 230. User prompt
+
+~~~~~~text
+Are there any remaining items on task 3?
+~~~~~~
+
+#### 231. Assistant response
+
+~~~~~~text
+I’ll compare the rebased Task 3 branch against the exact Sprint 5 logging requirements and the original four-gate plan, separating grading requirements from PR/documentation cleanup.
+~~~~~~
+
+#### 232. Assistant response
+
+~~~~~~text
+Task 3 is close, but one grading defect remains.
+
+- Blocker: [responder-dispatch-service/src/index.js](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/responder-dispatch-service/src/index.js:73) still has a legacy `logEvent()` that writes directly through `console.log/error`. Its fault-injection events lack the required `timestamp` and `message`.
+- Verification gap: [verify-sprint-5-logging.sh](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/scripts/verify-sprint-5-logging.sh:1) doesn’t exercise those fault-injection events, which is why the full check passed despite the defect.
+- Planned documentation: the structured-logging usage/schema and verification command have not been added to [README.md](/Users/austinfairbanks/school/cs426/.worktrees/sprint-5-task-1-prometheus/README.md:1). This is not explicitly required by Task 3’s rubric, but it was part of our approved Gate 4 plan.
+- Delivery: the rebased branch is still local—no push or PR yet.
+
+Everything else passes: all services emit JSON request logs with the required fields, the recovered AI disclosure is complete, the Compose stack is healthy, and Prometheus remains 8/8 up.
+~~~~~~
+
+#### 233. User prompt
+
+~~~~~~text
+Ok implement the remaining blockers
+~~~~~~
+
+#### 234. Assistant response
+
+~~~~~~text
+I’ll close the actual logging defect, extend the verifier so it can’t regress, and add the missing README usage documentation. I’m applying the repository’s AI-disclosure skill because these are AI-assisted coursework changes; after runtime verification I’ll update the transcript artifacts and commit the completed cleanup without pushing.
+~~~~~~
+
+#### 235. Assistant response
+
+~~~~~~text
+The fix is scoped to three files:
+
+- Remove the dispatch service’s legacy console logger and route its fault events through the shared JSON logger.
+- Exercise both fault-mode changes and an injected 503 in the verifier, with explicit assertions for those event records.
+- Document the logging schema, inspection command, and verifier in the README.
+
+No API contract, dependency, Compose, or infrastructure change is needed.
+~~~~~~
+
+#### 236. Assistant response
+
+~~~~~~text
+The static audit is clean: the legacy logger is gone, there are no direct console calls in custom-service source, JavaScript and Bash syntax pass, and the diff is limited to the intended three files. The disclosure skill added local `AI:` markers to each changed section; I’m now running the stricter end-to-end verifier before freezing the transcript references.
+~~~~~~
+
+#### 237. Assistant response
+
+~~~~~~text
+The functional fix now passes the complete grader-facing run, including the new fault-mode change and injected-503 assertions; all eight services still satisfy the JSON contract and Prometheus remains 8/8 up. The disclosure skill’s final action is now taking effect: I’m saving this session’s raw JSONL, attaching exact transcript references to the three modified files, and appending the relevant exchange verbatim before committing.
+~~~~~~
+
+
 <!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; the Austin and Bruce Sprint 3 completion sections intentionally have no JSONL at the student's direction. -->

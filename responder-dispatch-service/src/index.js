@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import express from "express";
 // AI: Sprint 5 Prometheus instrumentation was added with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl.
 import { createHttpMetrics } from "./http-metrics.js";
+import { createLogger } from "./logger.js";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   const rawValue = process.env[name];
@@ -44,6 +45,8 @@ const readEnumValue = (name, defaultValue, allowedValues) => {
 };
 
 const app = express();
+// AI: Sprint 5 routes lifecycle and error events through the structured JSON logger.
+const log = createLogger("responder-dispatch-service");
 const port = readBoundedInteger("PORT", 3000, 1, 65535);
 const dispatchLatencyMs = readBoundedInteger(
   "DISPATCH_LATENCY_MS",
@@ -51,9 +54,10 @@ const dispatchLatencyMs = readBoundedInteger(
   0,
   10000,
 );
-// AI: Sprint 5 creates the dispatch-service metrics registry with AI assistance.
+// AI: Sprint 5 creates the dispatch-service metrics registry and injects its structured logger with AI assistance.
 const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
   "responder-dispatch-service",
+  log,
 );
 
 // AI: Sprint 4 Task 3 — on-demand fault injection for the scripted failure scenario.
@@ -66,21 +70,6 @@ const faultLatencyMs = readBoundedInteger(
   0,
   60000,
 );
-
-const logEvent = (level, fields) => {
-  const entry = JSON.stringify({
-    level,
-    service: "responder-dispatch-service",
-    ...fields,
-  });
-
-  if (level === "error") {
-    console.error(entry);
-    return;
-  }
-
-  console.log(entry);
-};
 
 const statusOrder = ["assigned", "en_route", "on_scene", "resolved"];
 
@@ -205,7 +194,8 @@ app.post("/admin/fault", (request, response) => {
   const previousMode = faultMode;
   faultMode = requestedMode;
 
-  logEvent("warn", {
+  // AI: Sprint 5 Task 3 routes fault-mode changes through the shared logger so required fields are always present. See AI-DISCLOSURE.md and ai/chats/2026-08-11-080842-sprint-5-json-logging-final-fixes.jsonl.
+  log("warn", "Dispatch fault mode changed", {
     event: "dispatch_fault_mode_changed",
     previousMode,
     faultMode,
@@ -223,7 +213,8 @@ app.use((request, response, next) => {
   }
 
   if (faultMode === "error") {
-    logEvent("warn", {
+    // AI: Sprint 5 Task 3 routes injected-fault events through the shared logger while preserving diagnostic fields. See AI-DISCLOSURE.md and ai/chats/2026-08-11-080842-sprint-5-json-logging-final-fixes.jsonl.
+    log("warn", "Dispatch fault injected", {
       event: "dispatch_fault_injected",
       faultMode,
       method: request.method,
@@ -239,7 +230,8 @@ app.use((request, response, next) => {
     return;
   }
 
-  logEvent("warn", {
+  // AI: Sprint 5 Task 3 applies the same structured event contract to injected slow faults. See AI-DISCLOSURE.md and ai/chats/2026-08-11-080842-sprint-5-json-logging-final-fixes.jsonl.
+  log("warn", "Dispatch fault injected", {
     event: "dispatch_fault_injected",
     faultMode,
     method: request.method,
@@ -377,13 +369,10 @@ app.use((error, _request, response, next) => {
     return;
   }
 
-  console.error(
-    JSON.stringify({
-      level: "error",
-      message: "Unhandled request error",
-      error: error instanceof Error ? error.message : String(error),
-    }),
-  );
+  // AI: Sprint 5 standardizes unexpected request failures as structured JSON.
+  log("error", "Unhandled request error", {
+    error: error instanceof Error ? error.message : String(error),
+  });
 
   response.status(500).json({
     error: {
@@ -394,13 +383,7 @@ app.use((error, _request, response, next) => {
 });
 
 app.listen(port, () => {
-  console.log(
-    JSON.stringify({
-      level: "info",
-      message: "Responder dispatch service started",
-      port,
-      // AI: Sprint 4 Task 3 — expose the boot-time fault mode for observability.
-      faultMode,
-    }),
-  );
+  // AI: Sprint 5 standardizes the service startup event as structured JSON.
+  // AI: Sprint 4 Task 3 exposes the boot-time fault mode for observability.
+  log("info", "Responder dispatch service started", { port, faultMode });
 });

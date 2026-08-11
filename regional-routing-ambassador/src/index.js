@@ -2,6 +2,7 @@
 import express from "express";
 // AI: Sprint 5 Prometheus instrumentation was added with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl.
 import { createHttpMetrics } from "./http-metrics.js";
+import { createLogger } from "./logger.js";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   const rawValue = process.env[name];
@@ -28,9 +29,12 @@ const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
 };
 
 const app = express();
-// AI: Sprint 5 creates the ambassador metrics registry with AI assistance.
+// AI: Sprint 5 routes lifecycle, proxy, and error events through the structured JSON logger.
+const log = createLogger("regional-routing-ambassador");
+// AI: Sprint 5 creates the ambassador metrics registry and injects its structured logger with AI assistance.
 const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
   "regional-routing-ambassador",
+  log,
 );
 const port = readBoundedInteger("PORT", 3000, 1, 65535);
 const upstreamUrl = (
@@ -51,13 +55,8 @@ const sleep = (milliseconds) =>
   });
 
 const logProxyEvent = (fields) => {
-  console.log(
-    JSON.stringify({
-      level: "info",
-      service: "regional-routing-ambassador",
-      ...fields,
-    }),
-  );
+  const { message, ...context } = fields;
+  log("info", message, context);
 };
 
 const proxyRequest = async (request, response) => {
@@ -207,14 +206,10 @@ app.use((error, _request, response, next) => {
     return;
   }
 
-  console.error(
-    JSON.stringify({
-      level: "error",
-      service: "regional-routing-ambassador",
-      message: "Unhandled ambassador error",
-      error: error instanceof Error ? error.message : String(error),
-    }),
-  );
+  // AI: Sprint 5 standardizes unexpected proxy failures as structured JSON.
+  log("error", "Unhandled ambassador error", {
+    error: error instanceof Error ? error.message : String(error),
+  });
 
   response.status(500).json({
     error: {
@@ -225,15 +220,12 @@ app.use((error, _request, response, next) => {
 });
 
 app.listen(port, () => {
-  console.log(
-    JSON.stringify({
-      level: "info",
-      message: "Regional routing ambassador started",
-      port,
-      upstreamUrl,
-      upstreamTimeoutMs,
-      maxRetries,
-    }),
-  );
+  // AI: Sprint 5 standardizes the ambassador startup event as structured JSON.
+  log("info", "Regional routing ambassador started", {
+    port,
+    upstreamUrl,
+    upstreamTimeoutMs,
+    maxRetries,
+  });
 });
 // AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/.

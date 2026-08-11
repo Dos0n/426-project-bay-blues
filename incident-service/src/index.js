@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import express from "express";
 // AI: Sprint 5 Prometheus instrumentation was added with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl.
 import { createHttpMetrics } from "./http-metrics.js";
+import { createLogger } from "./logger.js";
 import { createNotificationPublisher } from "./notification-publisher.js";
 
 // AI: Bounded environment parsing and input-size constants were generated with AI assistance.
@@ -43,9 +44,11 @@ const readEnvironmentValue = (name, defaultValue) => {
 };
 
 const app = express();
-// AI: Sprint 5 creates a service-local metrics registry with AI assistance.
+// AI: Sprint 5 routes lifecycle and error events through the structured JSON logger.
+const log = createLogger("incident-service");
+// AI: Sprint 5 creates a service-local metrics registry and injects its structured logger with AI assistance.
 const { recordHttpMetrics, serveMetrics } =
-  createHttpMetrics("incident-service");
+  createHttpMetrics("incident-service", log);
 const port = readBoundedInteger("PORT", 3000, 1, 65535);
 const incidentLatencyMs = readBoundedInteger(
   "INCIDENT_LATENCY_MS",
@@ -420,13 +423,10 @@ app.use((error, _request, response, next) => {
     return;
   }
 
-  console.error(
-    JSON.stringify({
-      level: "error",
-      message: "Unhandled request error",
-      error: error instanceof Error ? error.message : String(error),
-    }),
-  );
+  // AI: Sprint 5 standardizes unexpected request failures as structured JSON.
+  log("error", "Unhandled request error", {
+    error: error instanceof Error ? error.message : String(error),
+  });
 
   response.status(500).json({
     error: {
@@ -450,24 +450,17 @@ const start = async () => {
   publishIncidentNotification = publisher.publishIncidentNotification;
 
   app.listen(port, () => {
-    console.log(
-      JSON.stringify({
-        level: "info",
-        message: "Incident service started",
-        port,
-      }),
-    );
+    // AI: Sprint 5 standardizes the service startup event as structured JSON.
+    log("info", "Incident service started", { port });
   });
 };
 
 start().catch((error) => {
-  console.error(
-    JSON.stringify({
-      level: "error",
-      event: "incident_service_start_failed",
-      error: error instanceof Error ? error.message : String(error),
-    }),
-  );
+  // AI: Sprint 5 preserves the machine-readable event while adding the required log fields.
+  log("error", "Incident service failed to start", {
+    event: "incident_service_start_failed",
+    error: error instanceof Error ? error.message : String(error),
+  });
   process.exit(1);
 });
 // AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/austinf-sprint2/austinf-sprint2.jsonl, and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.
