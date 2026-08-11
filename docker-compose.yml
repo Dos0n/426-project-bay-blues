@@ -259,6 +259,25 @@ services:
       retries: 5
       start_period: 5s
 
+  # AI: Sprint 5 Prometheus startup, configuration mount, port, and healthcheck were added with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl.
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - --quiet
+        - http://localhost:9090/-/healthy
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
 volumes:
   rabbitmq-data:
 # AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-06-201302-austinf-sprint4-rabbitmq.jsonl.

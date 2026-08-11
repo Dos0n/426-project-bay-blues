@@ -2,6 +2,8 @@
 import os from "node:os";
 import amqp from "amqplib";
 import express from "express";
+// AI: Sprint 5 Prometheus instrumentation was added with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl.
+import { createHttpMetrics } from "./http-metrics.js";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   const rawValue = process.env[name];
@@ -105,6 +107,14 @@ const log = (level, event, fields = {}) => {
 
 const app = express();
 app.disable("x-powered-by");
+
+// AI: Sprint 5 creates a service-local registry, measures requests, and exposes /metrics with AI assistance.
+const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
+  "emergency-notification-worker",
+);
+app.use(recordHttpMetrics);
+
+app.get("/metrics", serveMetrics);
 
 app.get("/health", (_request, response) => {
   response.status(200).json({ status: "ok" });

@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import express from "express";
+// AI: Sprint 5 Prometheus instrumentation was added with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl.
+import { createHttpMetrics } from "./http-metrics.js";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   const rawValue = process.env[name];
@@ -48,6 +50,10 @@ const dispatchLatencyMs = readBoundedInteger(
   200,
   0,
   10000,
+);
+// AI: Sprint 5 creates the dispatch-service metrics registry with AI assistance.
+const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
+  "responder-dispatch-service",
 );
 
 // AI: Sprint 4 Task 3 — on-demand fault injection for the scripted failure scenario.
@@ -149,7 +155,12 @@ const respondAfterLatency = (operation, next) => {
 };
 
 app.disable("x-powered-by");
+// AI: Sprint 5 request measurement and the Prometheus endpoint were added with AI assistance.
+app.use(recordHttpMetrics);
+
 app.use(express.json({ limit: "100kb" }));
+
+app.get("/metrics", serveMetrics);
 
 // AI: Sprint 4 Task 3 — health mirrors the injected fault so orchestration can see it.
 // error -> 503 (Docker marks the container unhealthy); slow -> stays a fast 200

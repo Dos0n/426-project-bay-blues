@@ -1,5 +1,7 @@
 // AI: This file was generated or substantially modified with AI assistance. See AI-DISCLOSURE.md and ai/chats/sradhakrishnan/.
 import express from "express";
+// AI: Sprint 5 Prometheus instrumentation was added with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-10-161106-sprint-5-prometheus-final.jsonl.
+import { createHttpMetrics } from "./http-metrics.js";
 
 const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
   const rawValue = process.env[name];
@@ -26,6 +28,10 @@ const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
 };
 
 const app = express();
+// AI: Sprint 5 creates the ambassador metrics registry with AI assistance.
+const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
+  "regional-routing-ambassador",
+);
 const port = readBoundedInteger("PORT", 3000, 1, 65535);
 const upstreamUrl = (
   process.env.UPSTREAM_URL ?? "http://regional-routing-service:3000"
@@ -37,6 +43,7 @@ const upstreamTimeoutMs = readBoundedInteger(
   60000,
 );
 const maxRetries = readBoundedInteger("MAX_RETRIES", 2, 0, 5);
+const observableProxyRoutes = new Set(["/regions", "/route"]);
 
 const sleep = (milliseconds) =>
   new Promise((resolve) => {
@@ -141,6 +148,10 @@ const proxyRequest = async (request, response) => {
 };
 
 app.disable("x-powered-by");
+// AI: Sprint 5 request measurement and the Prometheus endpoint were added with AI assistance.
+app.use(recordHttpMetrics);
+
+app.get("/metrics", serveMetrics);
 
 app.get("/health", async (_request, response) => {
   try {
@@ -172,6 +183,11 @@ app.get("/health", async (_request, response) => {
 });
 
 app.use((request, response, next) => {
+  // AI: Sprint 5 bounds proxy route labels to prevent unrecognized paths from creating new metric series.
+  response.locals.metricsRoute = observableProxyRoutes.has(request.path)
+    ? request.path
+    : "unmatched";
+
   if (request.method !== "GET" && request.method !== "HEAD") {
     response.status(405).json({
       error: {
