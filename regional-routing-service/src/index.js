@@ -33,9 +33,10 @@ const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
 const app = express();
 // AI: Sprint 5 routes lifecycle, cache, and error events through the structured JSON logger.
 const log = createLogger("regional-routing-service");
-// AI: Sprint 5 creates a shared logical-service registry for each routing replica with AI assistance.
+// AI: Sprint 5 creates a shared logical-service registry for each routing replica and injects its structured logger with AI assistance.
 const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
   "regional-routing-service",
+  log,
 );
 const port = readBoundedInteger("PORT", 3000, 1, 65535);
 const routingLatencyMs = readBoundedInteger(

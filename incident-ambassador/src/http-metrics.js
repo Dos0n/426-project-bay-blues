@@ -5,7 +5,7 @@ const responseTimeBucketsMilliseconds = [
   5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000,
 ];
 
-const createHttpMetrics = (serviceName) => {
+const createHttpMetrics = (serviceName, log) => {
   const register = new Registry();
 
   const requestsReceived = new Counter({
@@ -39,6 +39,17 @@ const createHttpMetrics = (serviceName) => {
 
       requestsReceived.inc(labels);
       responseTimeMilliseconds.observe(labels, elapsedMilliseconds);
+
+      // AI: Sprint 5 reuses the metrics timer to emit one structured completion log per HTTP response.
+      const statusCode = response.statusCode;
+      const level =
+        statusCode >= 500 ? "error" : statusCode >= 400 ? "warn" : "info";
+      log(level, "HTTP request completed", {
+        method: request.method,
+        path: request.path,
+        statusCode,
+        responseTimeMs: Number(elapsedMilliseconds.toFixed(3)),
+      });
     });
 
     next();

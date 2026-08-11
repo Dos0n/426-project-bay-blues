@@ -50,9 +50,10 @@ const processingDelayMs = readBoundedInteger(
   0,
   5000,
 );
-// AI: Sprint 5 creates the ambassador metrics registry with AI assistance.
+// AI: Sprint 5 creates the ambassador metrics registry and injects its structured logger with AI assistance.
 const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
   "incident-ambassador",
+  log,
 );
 
 // Only GET/HEAD are safe to retry; a retried POST could create a duplicate incident.

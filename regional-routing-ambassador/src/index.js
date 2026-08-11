@@ -31,9 +31,10 @@ const readBoundedInteger = (name, defaultValue, minimum, maximum) => {
 const app = express();
 // AI: Sprint 5 routes lifecycle, proxy, and error events through the structured JSON logger.
 const log = createLogger("regional-routing-ambassador");
-// AI: Sprint 5 creates the ambassador metrics registry with AI assistance.
+// AI: Sprint 5 creates the ambassador metrics registry and injects its structured logger with AI assistance.
 const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
   "regional-routing-ambassador",
+  log,
 );
 const port = readBoundedInteger("PORT", 3000, 1, 65535);
 const upstreamUrl = (

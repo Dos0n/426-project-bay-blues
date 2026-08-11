@@ -54,9 +54,10 @@ const dispatchLatencyMs = readBoundedInteger(
   0,
   10000,
 );
-// AI: Sprint 5 creates the dispatch-service metrics registry with AI assistance.
+// AI: Sprint 5 creates the dispatch-service metrics registry and injects its structured logger with AI assistance.
 const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
   "responder-dispatch-service",
+  log,
 );
 
 // AI: Sprint 4 Task 3 — on-demand fault injection for the scripted failure scenario.

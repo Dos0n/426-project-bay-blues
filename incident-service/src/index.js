@@ -46,9 +46,9 @@ const readEnvironmentValue = (name, defaultValue) => {
 const app = express();
 // AI: Sprint 5 routes lifecycle and error events through the structured JSON logger.
 const log = createLogger("incident-service");
-// AI: Sprint 5 creates a service-local metrics registry with AI assistance.
+// AI: Sprint 5 creates a service-local metrics registry and injects its structured logger with AI assistance.
 const { recordHttpMetrics, serveMetrics } =
-  createHttpMetrics("incident-service");
+  createHttpMetrics("incident-service", log);
 const port = readBoundedInteger("PORT", 3000, 1, 65535);
 const incidentLatencyMs = readBoundedInteger(
   "INCIDENT_LATENCY_MS",

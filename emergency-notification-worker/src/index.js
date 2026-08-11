@@ -99,9 +99,10 @@ const logEvent = (level, event, message, fields = {}) => {
 const app = express();
 app.disable("x-powered-by");
 
-// AI: Sprint 5 creates a service-local registry, measures requests, and exposes /metrics with AI assistance.
+// AI: Sprint 5 creates a service-local registry, injects its structured logger, measures requests, and exposes /metrics with AI assistance.
 const { recordHttpMetrics, serveMetrics } = createHttpMetrics(
   "emergency-notification-worker",
+  writeLog,
 );
 app.use(recordHttpMetrics);
 
