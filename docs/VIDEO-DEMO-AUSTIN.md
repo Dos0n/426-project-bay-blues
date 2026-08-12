@@ -11,9 +11,12 @@
 
 ## Figma setup
 
-- Use presentation mode with three linked frames.
+- Open the editable design: [Blue Light architecture video frames](https://www.figma.com/design/qeMEc6lXJnSA0CkRn3nbBb/Untitled?t=EfZkfFuPS9Nibw0w-0).
+- Select `01 · Full System`, enter presentation mode, and advance through the
+  three frames in their left-to-right canvas order.
 - Reuse the existing service diagram as the visual foundation.
-- Make each click move to a prepared frame; avoid freehand zooming or panning.
+- Keep each transition between prepared frames; avoid freehand zooming or
+  panning.
 - Keep labels large enough for a compressed video.
 - The talking points depend only on the three concepts below, not exact node
   positions or styling.

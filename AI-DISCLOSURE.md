@@ -8514,4 +8514,98 @@ Austin’s cue sheet is ready as a genuinely presentation-style artifact: three 
 PR #28 is open and correctly stacked on #27. I’m now doing the second requested pass in that top PR only: Bruce and Shri will use the same “screen / action / talking points / timing” structure as Austin, with commands preserved but spoken paragraphs removed.
 ~~~~~~
 
+## Project Video Figma Architecture Frames
+
+Raw Codex transcript: `ai/chats/2026-08-11-215419-video-demo-figma-architecture.jsonl`
+
+### Scope and outputs
+
+- Created three editable 1600-by-900 Figma frames in the team's supplied file:
+  full system, routing decision, and measured benefit versus operational cost.
+- Derived the visual language from the existing poster: Fractal blue, mint,
+  white cards, soft gray rules, uppercase section labels, thin connectors, and
+  generous whitespace.
+- Used Inter because Arial was not available through the connected Figma file.
+- Added the Figma file link and presentation order to
+  `docs/VIDEO-DEMO-AUSTIN.md`.
+- Attempted to link the frame-number pills for prototype navigation, but the
+  Figma Starter-plan MCP call limit rejected that final call before it ran.
+  The frames remain arranged sequentially from left to right.
+
+### Verbatim relevant exchange
+
+#### 1. User prompt
+
+~~~~~~text
+ok now lets generate agima diagram tha goes along with the script using the [@figma](plugin://figma@openai-curated-remote) connector. make it follow the UI principles of the poster
+~~~~~~
+
+#### 2. Assistant response
+
+~~~~~~text
+The Figma plugin is installed and enabled, but its connector tools (`whoami`, `create_new_file`, and `use_figma`) aren’t available in this task, so I can’t create the editable file yet.
+
+Please reconnect/authorize Figma in Codex, refresh this task, then say **“retry Figma.”** I’ll generate the prepared three-frame design:
+
+- Full system architecture
+- Routing ambassador → Caddy → replicas → Redis
+- Measured benefits versus operational costs
+
+It will use the poster’s blue/mint palette, typography, cards, connectors, spacing, and presentation-friendly 16:9 layout.
+~~~~~~
+
+#### 3. User prompt
+
+~~~~~~text
+Use [Untitled](https://www.figma.com/design/qeMEc6lXJnSA0CkRn3nbBb/Untitled?t=EfZkfFuPS9Nibw0w-0)
+~~~~~~
+
+#### 4. Assistant response
+
+~~~~~~text
+I have the target file, but neither the Figma connector’s editing tools nor a controllable browser session are available in this task.
+
+Please reconnect/authorize Figma in Codex, then reply **“retry”**. I’ll build the three poster-styled frames directly in [Untitled](https://www.figma.com/design/qeMEc6lXJnSA0CkRn3nbBb/Untitled?t=EfZkfFuPS9Nibw0w-0).
+~~~~~~
+
+#### 5. User prompt
+
+~~~~~~text
+retry
+~~~~~~
+
+#### 6. Assistant response
+
+~~~~~~text
+Still unavailable: the Figma connector exposes no editing tools, and there’s no controllable browser session.
+
+Please restart or reopen this Codex task after reconnecting Figma, then send the file link again. The current task cannot detect the refreshed connection.
+~~~~~~
+
+#### 7. User prompt
+
+~~~~~~text
+[$figma:figma-use](/Users/austinfairbanks/.codex/plugins/cache/openai-curated-remote/figma/2.0.17/skills/figma-use/SKILL.md) try now
+~~~~~~
+
+#### 8. Assistant response
+
+~~~~~~text
+The Figma-use skill is now active. Because this is a composed three-frame presentation, I’m pairing it with the screen-layout workflow; I’ll inspect the file first, then build incrementally and verify the rendered frames.
+~~~~~~
+
+#### 9. Assistant response
+
+~~~~~~text
+The file is genuinely blank: one empty page, no components, no local variables, and no Arial. I’m using Inter—the closest available presentation-safe substitute—and creating a small local poster token set so the frames stay editable and internally consistent.
+~~~~~~
+
+#### 10. Assistant response
+
+~~~~~~text
+The three frames are complete and already visually validated. The final navigation-link call hit the Starter-plan MCP limit before it ran, so the frames remain arranged sequentially rather than click-linked.
+
+Because this is coursework, I’m now recording the Figma-assisted work in the project’s required AI disclosure and adding the design link to Austin’s video runbook.
+~~~~~~
+
 <!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; the Austin and Bruce Sprint 3 completion sections intentionally have no JSONL at the student's direction. -->
