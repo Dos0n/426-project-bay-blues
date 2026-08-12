@@ -8352,4 +8352,302 @@ Also this should be a seperate Pr Stacked on top of the last one
 Absolutely. I’ll keep PR #26 unchanged and move the staged Shri work onto a new branch based on `video-demo-runbook`, making the new PR’s base branch `video-demo-runbook`. That creates a true stacked PR: Shri’s review shows only his runbook and launcher, while inheriting Bruce’s demo workflow underneath.
 ~~~~~~
 
+## Project Video Austin Architecture Cue Sheet
+
+Raw Codex transcript: `ai/chats/2026-08-11-205441-video-demo-austin-runbook.jsonl`
+
+### Scope and outputs
+
+- Added `docs/VIDEO-DEMO-AUSTIN.md` as a presentation-oriented cue sheet rather
+  than a word-for-word speech.
+- Organized Austin's two minutes around three layout-independent Figma frames:
+  the full system, the replicated routing decision, and the benefit/cost
+  trade-off.
+- Included timed on-screen actions, short talking-point bullets, the measured
+  `297 ms -> 63 ms` cache example, a team closing, and accuracy guardrails.
+- No Figma artifact, application code, service behavior, infrastructure,
+  dependency, Compose configuration, or strict JSON file was changed.
+
+### Verification
+
+- Markdown structure, transcript references, and `git diff --check` passed.
+- The branch was created directly from `video-demo-shri-runbook`, so its pull
+  request is stacked on Shri's PR #27.
+- The cue sheet says ambassadors rather than sidecars, treats Grafana as an
+  observer, and does not claim production readiness.
+
+### Verbatim relevant exchange
+
+#### 1. User prompt
+
+~~~~~~text
+Alright so for my thing should I extend the current service diagram to a figma thing so I can navigate around it well? And can we just write my script assuming I have that without needing to like exactly map to it?
+~~~~~~
+
+#### 2. Assistant response
+
+~~~~~~text
+Yes. Use Figma as a navigable visual layer over the current service diagram, but keep it to three prepared frames instead of freely panning around a giant canvas.
+
+### Suggested Figma frames
+
+1. **Full system**
+   - Phone/client
+   - Incident and notification path
+   - Regional routing path
+   - Dispatch path
+
+2. **Routing decision**
+   - Routing ambassador
+   - Caddy
+   - Three stateless replicas
+   - Shared Redis cache
+
+3. **Benefit and cost**
+   - Benefit: availability, load distribution, faster repeated lookups
+   - Evidence: approximately `297 ms → 63 ms`
+   - Cost: extra hops, cache staleness, more infrastructure and monitoring
+
+Use Figma presentation/prototype links so each click moves predictably to the next frame. The script can reference “this routing path” and “the shared cache” without depending on exact coordinates or layout.
+
+## Austin’s script — approximately 1:45
+
+### Full-system frame
+
+> “Bruce showed a request moving through our services, and Shri showed the routing path responding under concurrent load. I’ll explain the main design decision behind that behavior.”
+
+> “Our system separates incident creation, regional routing, responder dispatch, and asynchronous notification into distinct paths. This keeps each service focused on one responsibility and lets us scale or modify a path independently.”
+
+### Zoom to routing frame
+
+> “Our most important scaling decision was to make regional routing stateless and run three identical replicas behind Caddy.”
+
+> “The routing ambassador gives clients one stable entry point and handles timeouts, retries, and request logging. Caddy then distributes requests across healthy replicas. Because every routing request contains its location and emergency type, any healthy replica can calculate the result.”
+
+> “This improves availability because Caddy can stop sending traffic to an unhealthy replica while the remaining replicas continue serving requests.”
+
+### Highlight Redis
+
+> “The replicas share a Redis cache rather than keeping separate local caches. This means one replica can calculate and cache a route, while a different replica can serve the repeated lookup.”
+
+> “In our measured example, a route-cache miss took about 297 milliseconds, while the repeated cached lookup took about 63 milliseconds.”
+
+### Move to trade-off frame
+
+> “The trade-off is additional operational complexity. A request travels through an ambassador and load balancer before reaching a replica, Redis introduces expiration and stale-data concerns, and every additional container creates another component we have to monitor.”
+
+> “For this simulation, we accepted that complexity because it made replication, caching, failure handling, and observability measurable. It is not yet a production emergency system: it still lacks authentication, durable incident history, and real responder integrations.”
+
+## Closing — 10–15 seconds
+
+> “Together, our demonstration shows a system that starts reproducibly, processes an emergency request end to end, and exposes its behavior under load. Replication and shared caching improved responsiveness and availability, with the explicit cost of additional infrastructure and operational complexity.”
+
+This script is intentionally diagram-agnostic. As long as the three frames communicate full system → routing decision → trade-off, you can rearrange the Figma design freely.
+~~~~~~
+
+#### 3. User prompt
+
+~~~~~~text
+Good for this but keep all of these PRs focused on bullet points like there doing a power point presentation instead of going for like a full script. First things first generate this script with these things in mind and then mount the PR. Then once done, bulletify all of the scripts.
+~~~~~~
+
+#### 4. Assistant response
+
+~~~~~~text
+I’ll treat “script” as a presentation cue sheet, not spoken paragraphs. I’ll first add Austin’s three-frame Figma runbook and open PR #28 stacked on Shri’s PR #27. Then I’ll add a second commit to that same top PR converting Bruce’s and Shri’s runbooks into the same slide-style format, so the final merged stack has consistent bullets without rewriting the two lower PRs.
+~~~~~~
+
+## Project Video Presentation-Bullet Reformat
+
+Raw Codex transcript: `ai/chats/2026-08-11-205649-video-demo-bulletify-all-runbooks.jsonl`
+
+### Scope and outputs
+
+- Reformatted `docs/VIDEO-DEMO-BRUCE.md` from suggested spoken paragraphs into
+  timed presentation bullets organized by screen, action, talking points, and
+  expected proof.
+- Reformatted `docs/VIDEO-DEMO-SHRI.md` into the same presentation-cue format,
+  preserving the live Grafana requirements, routing-only dashboard scope,
+  honest incident-threshold explanation, and Austin handoff.
+- Kept `docs/VIDEO-DEMO-AUSTIN.md` in the bullet-oriented format in which it was
+  initially created.
+- Preserved every executable command and did not modify the three demo scripts,
+  service behavior, infrastructure, dependencies, Compose configuration, or
+  strict JSON files.
+
+### Verification
+
+- All three runbooks contain timed sections and bullet-based talking points.
+- Bruce's runbook still covers clean Compose startup, all thirteen service
+  checks, the stateful incident-to-dispatch flow, and Shri's handoff.
+- Shri's runbook still covers live k6, two or more Grafana refreshes, request
+  rate, error rate, p95 latency, the known incident threshold miss, and Austin's
+  handoff.
+- Austin's runbook remains layout-independent and covers one design decision,
+  measured benefit, explicit cost, and the team closing.
+- AI markers, the matching raw transcript, Markdown structure, and
+  `git diff --check` passed.
+
+### Verbatim relevant exchange
+
+#### 1. User prompt
+
+~~~~~~text
+Good for this but keep all of these PRs focused on bullet points like there doing a power point presentation instead of going for like a full script. First things first generate this script with these things in mind and then mount the PR. Then once done, bulletify all of the scripts.
+~~~~~~
+
+#### 2. Assistant response
+
+~~~~~~text
+I’ll treat “script” as a presentation cue sheet, not spoken paragraphs. I’ll first add Austin’s three-frame Figma runbook and open PR #28 stacked on Shri’s PR #27. Then I’ll add a second commit to that same top PR converting Bruce’s and Shri’s runbooks into the same slide-style format, so the final merged stack has consistent bullets without rewriting the two lower PRs.
+~~~~~~
+
+#### 3. Assistant response
+
+~~~~~~text
+Austin’s cue sheet is ready as a genuinely presentation-style artifact: three Figma frames, timed screen actions, short talking points, the measured cache evidence, trade-off bullets, and the closing. It does not depend on the diagram’s exact geometry. I’m opening its stacked PR now before touching the other two runbooks, matching the requested order.
+~~~~~~
+
+#### 4. Assistant response
+
+~~~~~~text
+PR #28 is open and correctly stacked on #27. I’m now doing the second requested pass in that top PR only: Bruce and Shri will use the same “screen / action / talking points / timing” structure as Austin, with commands preserved but spoken paragraphs removed.
+~~~~~~
+
+## Project Video Figma Architecture Frames
+
+Raw Codex transcript: `ai/chats/2026-08-11-215419-video-demo-figma-architecture.jsonl`
+
+### Scope and outputs
+
+- Created three editable 1600-by-900 Figma frames in the team's supplied file:
+  full system, routing decision, and measured benefit versus operational cost.
+- Derived the visual language from the existing poster: Fractal blue, mint,
+  white cards, soft gray rules, uppercase section labels, thin connectors, and
+  generous whitespace.
+- Used Inter because Arial was not available through the connected Figma file.
+- Added the Figma file link and presentation order to
+  `docs/VIDEO-DEMO-AUSTIN.md`.
+- Attempted to link the frame-number pills for prototype navigation, but the
+  Figma Starter-plan MCP call limit rejected that final call before it ran.
+  The frames remain arranged sequentially from left to right.
+
+### Verbatim relevant exchange
+
+#### 1. User prompt
+
+~~~~~~text
+ok now lets generate agima diagram tha goes along with the script using the [@figma](plugin://figma@openai-curated-remote) connector. make it follow the UI principles of the poster
+~~~~~~
+
+#### 2. Assistant response
+
+~~~~~~text
+The Figma plugin is installed and enabled, but its connector tools (`whoami`, `create_new_file`, and `use_figma`) aren’t available in this task, so I can’t create the editable file yet.
+
+Please reconnect/authorize Figma in Codex, refresh this task, then say **“retry Figma.”** I’ll generate the prepared three-frame design:
+
+- Full system architecture
+- Routing ambassador → Caddy → replicas → Redis
+- Measured benefits versus operational costs
+
+It will use the poster’s blue/mint palette, typography, cards, connectors, spacing, and presentation-friendly 16:9 layout.
+~~~~~~
+
+#### 3. User prompt
+
+~~~~~~text
+Use [Untitled](https://www.figma.com/design/qeMEc6lXJnSA0CkRn3nbBb/Untitled?t=EfZkfFuPS9Nibw0w-0)
+~~~~~~
+
+#### 4. Assistant response
+
+~~~~~~text
+I have the target file, but neither the Figma connector’s editing tools nor a controllable browser session are available in this task.
+
+Please reconnect/authorize Figma in Codex, then reply **“retry”**. I’ll build the three poster-styled frames directly in [Untitled](https://www.figma.com/design/qeMEc6lXJnSA0CkRn3nbBb/Untitled?t=EfZkfFuPS9Nibw0w-0).
+~~~~~~
+
+#### 5. User prompt
+
+~~~~~~text
+retry
+~~~~~~
+
+#### 6. Assistant response
+
+~~~~~~text
+Still unavailable: the Figma connector exposes no editing tools, and there’s no controllable browser session.
+
+Please restart or reopen this Codex task after reconnecting Figma, then send the file link again. The current task cannot detect the refreshed connection.
+~~~~~~
+
+#### 7. User prompt
+
+~~~~~~text
+[$figma:figma-use](/Users/austinfairbanks/.codex/plugins/cache/openai-curated-remote/figma/2.0.17/skills/figma-use/SKILL.md) try now
+~~~~~~
+
+#### 8. Assistant response
+
+~~~~~~text
+The Figma-use skill is now active. Because this is a composed three-frame presentation, I’m pairing it with the screen-layout workflow; I’ll inspect the file first, then build incrementally and verify the rendered frames.
+~~~~~~
+
+#### 9. Assistant response
+
+~~~~~~text
+The file is genuinely blank: one empty page, no components, no local variables, and no Arial. I’m using Inter—the closest available presentation-safe substitute—and creating a small local poster token set so the frames stay editable and internally consistent.
+~~~~~~
+
+#### 10. Assistant response
+
+~~~~~~text
+The three frames are complete and already visually validated. The final navigation-link call hit the Starter-plan MCP limit before it ran, so the frames remain arranged sequentially rather than click-linked.
+
+Because this is coursework, I’m now recording the Figma-assisted work in the project’s required AI disclosure and adding the design link to Austin’s video runbook.
+~~~~~~
+
+## Project Video Board-Specific Presentation Cues
+
+Raw Codex transcript: `ai/chats/2026-08-12-072031-video-demo-board-specific-cues.jsonl`
+
+### Scope and outputs
+
+- Updated `docs/VIDEO-DEMO-AUSTIN.md` to link directly to each of the three
+  Figma frame nodes.
+- Replaced vague highlighting directions with concise pointer targets that
+  match the actual rows, cards, arrows, evidence band, trade-off columns, and
+  production guardrail on the board.
+- Preserved the two-minute timing, bullet-oriented presentation format,
+  accuracy guardrails, and existing technical claims.
+- Did not modify service code, scripts, infrastructure, metrics, or the Figma
+  board itself in this update.
+
+### Verbatim relevant exchange
+
+#### 1. User prompt
+
+~~~~~~text
+Ok now update my pr to point a little bit more specifically to the board, not just vaguely now while still using the bullets and concsiied sthings.
+~~~~~~
+
+#### 2. Assistant response
+
+~~~~~~text
+I’ll update the presenter bullets so each talking point maps explicitly to the three Figma frames and the exact visual to point at, while keeping them concise. I’ll first identify the current stacked branch and relevant presentation document, then patch and verify the PR diff.
+~~~~~~
+
+#### 3. Assistant response
+
+~~~~~~text
+I found the top stacked branch, `video-demo-austin-runbook`, and its cue sheet. The content is accurate but several “highlight” directions are too generic. I’ll tighten only Austin’s document with exact board landmarks—rows, cards, and arrows—and update the Frame 1 link to open the correct node directly. I’ll leave the unrelated untracked `poster/` directory untouched. Because this is coursework documentation, I’m also following the repository’s required AI-disclosure workflow for this PR update.
+~~~~~~
+
+#### 4. Assistant response
+
+~~~~~~text
+The cue sheet now opens each Figma frame through its direct node link and names the exact objects to trace: the three Frame 1 rows, the Frame 2 route/evidence cards, and the Frame 3 result, trade-off columns, and production guardrail. The timed sections remain short bullets. I’m recording this focused update, then I’ll commit and push it onto the existing top stacked PR.
+~~~~~~
+
 <!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; the Austin and Bruce Sprint 3 completion sections intentionally have no JSONL at the student's direction. -->
