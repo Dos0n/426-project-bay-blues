@@ -8242,4 +8242,114 @@ The first clean start found an environmental conflict, not a project defect: ano
 The exact demo now passes end to end: all 13 Compose services report reachable, and the generated incident is routed to North Campus, assigned to UMPD/EMS North, then retrieved successfully by dispatch ID. The dynamic-port validation also confirms the scripts will work with `.env` overrides. I’m cleaning up only this temporary test stack, then I’ll finalize disclosure and the PR diff.
 ~~~~~~
 
+## Project Video Grafana Runbook and Load Launcher
+
+Raw Codex transcript: `ai/chats/2026-08-11-204715-video-demo-shri-runbook-stacked.jsonl`
+
+### Scope and outputs
+
+- Added `docs/VIDEO-DEMO-SHRI.md` with Shri's pre-recording checklist,
+  two-minute narration, live Grafana panel explanations, accurate handling of
+  the documented incident-latency miss, Austin handoff, and recovery commands.
+- Added `scripts/demo-load.sh`, which discovers the active Compose network,
+  temporarily connects the course Gantry devcontainer when needed, and runs
+  the already committed `load-tests/sprint-5-load.js` without changing saved
+  measurement artifacts.
+- No new load workload, dashboard, service behavior, dependency, Compose
+  configuration, or strict JSON file was added or modified.
+
+### Verification
+
+- Bash syntax and `git diff --check` passed; ShellCheck was unavailable.
+- The launcher completed the full committed 10-VU, 60-second workload through
+  Gantry: 400 iterations, 1,200 HTTP requests, 0% HTTP errors, routing p95 of
+  216.33 ms against its 400 ms SLO, and the already documented incident p95
+  miss of 272.4 ms against its 250 ms SLO.
+- The three exact dashboard queries returned fresh values after the run:
+  request rate `3.309...` req/s, error rate `0`, and p95 `201.25` ms.
+- The launcher disconnected Gantry from the temporary Compose network after
+  completion.
+- A pronoun audit found no gendered pronouns in either video runbook or the
+  launcher; Shri is referred to by name.
+
+### Verbatim relevant exchange
+
+#### 1. User prompt
+
+~~~~~~text
+Ok do we need to add anything more for tje script for Shri? Or can you just translate what we said and have a runbooo and directions
+~~~~~~
+
+#### 2. Assistant response
+
+~~~~~~text
+Shri probably does not need a new load-test script—the final 60-second k6 workload and provisioned Grafana dashboard are already merged. I’ll verify their exact commands and dashboard behavior, then add a concise two-minute runbook to PR #26 with setup, recording sequence, narration, handoff, and recovery steps. I’ll update the AI-disclosure artifacts for this added coursework document too.
+~~~~~~
+
+#### 3. Assistant response
+
+~~~~~~text
+The existing k6 workload is sufficient, but its Docker invocation is too long and hardcodes a Compose network name that may differ by checkout. I’m adding a tiny `demo-load.sh` wrapper that discovers the active Compose network and runs the committed final workload without overwriting result artifacts. Shri’s runbook will make the known scope explicit: Grafana’s three panels observe only the public routing path, even though k6 also exercises incident and dispatch traffic.
+~~~~~~
+
+#### 4. Assistant response
+
+~~~~~~text
+The runbook now gives Shri a clean, accurate two-minute sequence and prepares her for the one potentially confusing visual: the final k6 summary honestly shows the documented incident-latency SLO miss, while the routing path displayed in Grafana meets its SLO with zero errors. I’m testing the new one-command wrapper against an isolated Compose stack now, including the full 60-second workload.
+~~~~~~
+
+#### 5. Assistant response
+
+~~~~~~text
+The wrapper correctly found the isolated Compose network and reached the load-test launch. This checkout did not yet have the `grafana/k6` image, so Docker is pulling it now—exactly why the runbook includes a pre-recording image check. Once available, I’ll complete the 60-second execution and verify Grafana’s routing series received fresh samples.
+~~~~~~
+
+#### 6. Assistant response
+
+~~~~~~text
+The validation exposed a better course-aligned path: this workstation’s Docker credential helper blocks pulling `grafana/k6` over SSH, while the Gantry devcontainer already includes k6 2.2.0. I’m adapting the wrapper to prefer the existing course devcontainer and attach it to the active Compose network when needed, with the container-image method only as a fallback. This removes a recording-time download risk and follows the repository’s Gantry-first rule.
+~~~~~~
+
+#### 7. Assistant response
+
+~~~~~~text
+The full wrapper run succeeded functionally: 400 iterations, 1,200 requests, 0% HTTP errors, routing p95 216 ms against the 400 ms SLO, and the expected incident p95 miss at 272 ms. k6 returns exit code 99 for that known threshold, so I’m making the wrapper convert only that documented code into a clear on-screen note; real execution errors will still fail.
+~~~~~~
+
+#### 8. Assistant response
+
+~~~~~~text
+Live observability is verified too: Prometheus reported fresh request-rate data, 0% routing errors, and roughly 201 ms dashboard p95; the wrapper also removed the temporary Gantry network connection afterward. No new k6 workload was needed—only the safe launcher and Shri’s runbook. I’m cleaning up the isolated stack and adding the matching disclosure records to the existing PR.
+~~~~~~
+
+#### 9. User prompt
+
+~~~~~~text
+Shri is a dude
+~~~~~~
+
+#### 10. Assistant response
+
+~~~~~~text
+Got it—Shri uses he/him. I’ll correct any pronouns in the new runbook and PR materials before pushing the update.
+~~~~~~
+
+#### 11. Assistant response
+
+~~~~~~text
+The audit found no gendered pronouns in Shri’s runbook, Bruce’s handoff, or the launcher, so no wording correction is needed there. I’ll keep Shri’s name or he/him in any added prose and finish the pending PR update.
+~~~~~~
+
+#### 12. User prompt
+
+~~~~~~text
+Also this should be a seperate Pr Stacked on top of the last one
+~~~~~~
+
+#### 13. Assistant response
+
+~~~~~~text
+Absolutely. I’ll keep PR #26 unchanged and move the staged Shri work onto a new branch based on `video-demo-runbook`, making the new PR’s base branch `video-demo-runbook`. That creates a true stacked PR: Shri’s review shows only his runbook and launcher, while inheriting Bruce’s demo workflow underneath.
+~~~~~~
+
 <!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; the Austin and Bruce Sprint 3 completion sections intentionally have no JSONL at the student's direction. -->
