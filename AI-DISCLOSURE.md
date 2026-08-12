@@ -8608,4 +8608,46 @@ The three frames are complete and already visually validated. The final navigati
 Because this is coursework, I’m now recording the Figma-assisted work in the project’s required AI disclosure and adding the design link to Austin’s video runbook.
 ~~~~~~
 
+## Project Video Board-Specific Presentation Cues
+
+Raw Codex transcript: `ai/chats/2026-08-12-072031-video-demo-board-specific-cues.jsonl`
+
+### Scope and outputs
+
+- Updated `docs/VIDEO-DEMO-AUSTIN.md` to link directly to each of the three
+  Figma frame nodes.
+- Replaced vague highlighting directions with concise pointer targets that
+  match the actual rows, cards, arrows, evidence band, trade-off columns, and
+  production guardrail on the board.
+- Preserved the two-minute timing, bullet-oriented presentation format,
+  accuracy guardrails, and existing technical claims.
+- Did not modify service code, scripts, infrastructure, metrics, or the Figma
+  board itself in this update.
+
+### Verbatim relevant exchange
+
+#### 1. User prompt
+
+~~~~~~text
+Ok now update my pr to point a little bit more specifically to the board, not just vaguely now while still using the bullets and concsiied sthings.
+~~~~~~
+
+#### 2. Assistant response
+
+~~~~~~text
+I’ll update the presenter bullets so each talking point maps explicitly to the three Figma frames and the exact visual to point at, while keeping them concise. I’ll first identify the current stacked branch and relevant presentation document, then patch and verify the PR diff.
+~~~~~~
+
+#### 3. Assistant response
+
+~~~~~~text
+I found the top stacked branch, `video-demo-austin-runbook`, and its cue sheet. The content is accurate but several “highlight” directions are too generic. I’ll tighten only Austin’s document with exact board landmarks—rows, cards, and arrows—and update the Frame 1 link to open the correct node directly. I’ll leave the unrelated untracked `poster/` directory untouched. Because this is coursework documentation, I’m also following the repository’s required AI-disclosure workflow for this PR update.
+~~~~~~
+
+#### 4. Assistant response
+
+~~~~~~text
+The cue sheet now opens each Figma frame through its direct node link and names the exact objects to trace: the three Frame 1 rows, the Frame 2 route/evidence cards, and the Frame 3 result, trade-off columns, and production guardrail. The timed sections remain short bullets. I’m recording this focused update, then I’ll commit and push it onto the existing top stacked PR.
+~~~~~~
+
 <!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; the Austin and Bruce Sprint 3 completion sections intentionally have no JSONL at the student's direction. -->
