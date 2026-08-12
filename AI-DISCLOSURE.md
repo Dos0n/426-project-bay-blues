@@ -8037,4 +8037,209 @@ The functional fix now passes the complete grader-facing run, including the new 
 ~~~~~~
 
 
+## Project Video Demo Runbook and Scripts
+
+Raw Codex transcript: `ai/chats/2026-08-11-203027-video-demo-runbook.jsonl`
+
+### Scope and outputs
+
+- Added `scripts/demo-health.sh`, which waits for and checks all thirteen
+  Compose services using their HTTP or native health protocols.
+- Added `scripts/demo-incident-flow.sh`, which creates a real incident through
+  the incident ambassador, routes its returned data through the routing
+  ambassador, dispatches the selected response group, and retrieves the saved
+  dispatch for verification.
+- Added `docs/VIDEO-DEMO-BRUCE.md` with the exact clean-start, health-check, and
+  end-to-end demo commands plus concise speaking and handoff cues.
+- No service API, Compose configuration, dependency, strict JSON file, or
+  infrastructure behavior was modified.
+
+### Verification
+
+- Bash syntax and `git diff --check` passed; ShellCheck was unavailable.
+- A clean Compose startup completed on isolated host-port overrides because a
+  separate Sprint 5 worktree was already using the default ports.
+- All thirteen service checks passed.
+- The end-to-end script created a medical incident, selected North Campus and
+  UMPD / EMS North through a routing replica, created the dispatch, read it
+  back, and passed its cross-service identity assertions.
+
+### Verbatim relevant exchange
+
+#### 1. User prompt
+
+~~~~~~text
+Ok let’s brainstorm a script for us to run - and a markdown for Bruce to do to have commands ready to copy paste.
+
+to me the script would create an incident, call the routing ambassador with the in incident info, and then have the routing info be pushed to the dispatch service.
+
+We also just need commands to run compose and then ping all the services separately. Does this make sense? Should we add something else
+~~~~~~
+
+#### 2. Assistant response
+
+~~~~~~text
+Yes—that is the right “happy-path” story. I’m mapping the exact request and response fields between incident → routing → dispatch so the proposed script reflects what the services actually accept, then I’ll suggest the smallest extra proof worth showing.
+~~~~~~
+
+#### 3. Assistant response
+
+~~~~~~text
+Yes. The flow should tell one coherent story:
+
+> A user reports an incident → the routing system selects a region and response team → the dispatch service assigns that team.
+
+The demo script acts as the simulated mobile client coordinating those three APIs.
+
+## Proposed files
+
+- `scripts/demo-health.sh` — concise health check with labeled PASS/FAIL output.
+- `scripts/demo-incident-flow.sh` — runs the complete incident-to-dispatch story.
+- `docs/VIDEO-DEMO-BRUCE.md` — copy/paste recording commands and brief speaking cues.
+
+## `demo-incident-flow.sh`
+
+The script should:
+
+1. Create a medical incident through the incident ambassador:
+
+   ```text
+   POST localhost:3003/incidents
+   ```
+
+2. Extract:
+
+   - `incidentId`
+   - `emergencyType`
+   - latitude and longitude
+
+3. Send that incident information through the routing ambassador:
+
+   ```text
+   GET localhost:3002/route?latitude=...&longitude=...&emergencyType=...
+   ```
+
+4. Extract:
+
+   - `regionName`
+   - `responseGroup.id`
+   - `servedBy`
+   - `cache`
+
+5. Send the selected team and incident ID to dispatch:
+
+   ```text
+   POST localhost:3004/dispatches
+   {
+     "incidentId": "...",
+     "teamId": "..."
+   }
+   ```
+
+6. Fetch the new dispatch to prove it was stored.
+
+7. Print a clean summary:
+
+   ```text
+   BLUE LIGHT REQUEST COMPLETED
+
+   Incident:  1f45... — medical emergency
+   Region:    North Campus
+   Routed by: regional-routing-service-b
+   Team:      UMPD / EMS North
+   Dispatch:  assigned — ETA 6 minutes
+
+   PASS: incident → routing → dispatch
+   ```
+
+The script should fail immediately if any request returns the wrong status or omits a required field.
+
+## Health-check script
+
+Don’t manually curl eleven containers during the recording. Use:
+
+- `docker compose ps` to prove all containers are running and healthy.
+- One short script to ping the public application endpoints individually:
+
+  ```text
+  PASS routing ambassador       localhost:3002/health
+  PASS incident ambassador      localhost:3003/health
+  PASS responder dispatch       localhost:3004/health
+  PASS notification worker      localhost:3005/health
+  ```
+
+The script can also check Redis, RabbitMQ, Caddy, Prometheus, and Grafana internally, but collapse those into a clean PASS table.
+
+## Bruce’s copy/paste sequence
+
+```bash
+cd 426-project--bay-blues-
+
+# Show that the system begins stopped.
+docker compose down
+
+# Required clean startup, shown on camera.
+docker compose up -d
+
+# Show every container and health state.
+docker compose ps
+
+# Verify the components are reachable.
+./scripts/demo-health.sh
+
+# Run the complete user story.
+./scripts/demo-incident-flow.sh
+```
+
+Use `docker compose up -d`, not `--build`, during the recording. It still satisfies the required Compose startup while avoiding several minutes of noisy image-building.
+
+## One worthwhile addition
+
+After the main flow, retrieve the created dispatch with `GET /dispatches/:id`. That proves the final POST produced state instead of merely returning a plausible response.
+
+If time permits, the flow script could also repeat the routing call to show `MISS → HIT`, but I would make that optional. Bruce’s essential story should remain incident → route → dispatch; Shri and Austin can use the caching behavior later when discussing metrics and trade-offs.
+~~~~~~
+
+#### 4. User prompt
+
+~~~~~~text
+Good with that plus the addition. Submit a PR to review for the video that I can toss them
+~~~~~~
+
+#### 5. Assistant response
+
+~~~~~~text
+I’ll turn this into a reviewable video-demo PR: the two scripts, Bruce’s copy/paste runbook, validation, and the required course AI-disclosure records. I’ll use the repository’s AI-disclosure workflow because these are submission-adjacent course files, then push a focused branch and open the PR.
+~~~~~~
+
+#### 6. Assistant response
+
+~~~~~~text
+The team’s `main` has moved significantly since the local checkout: Prometheus, Grafana, structured logging, and the final load test are now merged. I’m basing the demo work on that current state and leaving the existing untracked `poster/` directory untouched. GitHub CLI authentication is stale; I can still build and validate the branch now, then I’ll attempt the push and use the safest available PR path.
+~~~~~~
+
+#### 7. Assistant response
+
+~~~~~~text
+The implementation will stay deliberately small: one script verifies every Compose service with its native health mechanism, one script performs and validates the actual incident → route → dispatch chain (including the final GET verification), and one runbook gives Bruce the exact recording commands and speaking cues. No service APIs or infrastructure need to change.
+~~~~~~
+
+#### 8. Assistant response
+
+~~~~~~text
+Static checks pass, and the diff is limited to the three intended new files; the user-owned `poster/` directory remains untracked and excluded. I’m now testing the exact recording sequence—clean Compose start, all-service health verification, and the complete stateful request flow—against the newly merged Sprint 5 stack.
+~~~~~~
+
+#### 9. Assistant response
+
+~~~~~~text
+The first clean start found an environmental conflict, not a project defect: another Sprint 5 worktree is already running on ports 3002–3006, 9090, and RabbitMQ’s host ports. I’m preserving that stack and validating this branch on temporary host-port overrides; the scripts resolve Compose’s published ports dynamically, so this also tests that they are not hardcoded to Bruce’s machine.
+~~~~~~
+
+#### 10. Assistant response
+
+~~~~~~text
+The exact demo now passes end to end: all 13 Compose services report reachable, and the generated incident is routed to North Campus, assigned to UMPD/EMS North, then retrieved successfully by dispatch ID. The dynamic-port validation also confirms the scripts will work with `.env` overrides. I’m cleaning up only this temporary test stack, then I’ll finalize disclosure and the PR diff.
+~~~~~~
+
 <!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; the Austin and Bruce Sprint 3 completion sections intentionally have no JSONL at the student's direction. -->
