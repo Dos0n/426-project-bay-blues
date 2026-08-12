@@ -131,14 +131,35 @@ which scraped all 8 service targets throughout:
 | `POST /incidents` | 271.55 ms | **242.5 ms** |
 | `POST /dispatches` | 208.45 ms | 242.5 ms |
 
-Routing agrees closely between k6 and Prometheus. **The incident and dispatch
-rows do not**, and the reason is instructive: the histogram buckets defined in
-`http-metrics.js` are `…, 50, 100, 250, 500, …`. Both services' true p95 values
-fall inside the single wide `100–250 ms` bucket, so Prometheus interpolates both
-to 242.5 ms. In particular, **the Grafana dashboard would show incident-service
-p95 at ~242 ms — under the 250 ms SLO, i.e. green — while k6's precise
-measurement (271.55 ms) shows the SLO is actually breached.** This is a real
-observability limitation, discussed under Interpretation below.
+Routing agrees closely (210.82 ms vs 205.6 ms) because k6 and Prometheus measure
+the **same boundary** there — k6 drove `regional-routing-ambassador` and the
+Prometheus series is that same ambassador's `/route`. The incident and dispatch
+rows differ, but for two *different* reasons:
+
+- **Incident — different measurement scope, not bucketing.** k6 drove
+  `POST /incidents` through `incident-ambassador`, so its 271.55 ms includes the
+  ambassador's ~50 ms inspection delay on top of `incident-service`. The
+  Prometheus figure (242.5 ms) is the `incident-service` series alone — the
+  internal service handling *without* the ambassador hop. The two numbers cover
+  different spans of the path, and the ~29 ms gap is roughly that ambassador
+  overhead. (An earlier draft wrongly blamed bucket interpolation here; that is
+  impossible, since 271.55 ms is above 250 ms and cannot fall in a `100–250 ms`
+  bucket. To compare like-for-like you would query the ambassador's series, not
+  `incident-service`.)
+- **Dispatch — histogram bucket coarseness.** Here k6 hit
+  `responder-dispatch-service` directly (no ambassador), so k6 (208.45 ms) and
+  Prometheus (242.5 ms) *do* measure the same boundary. The gap is the histogram:
+  the buckets in `http-metrics.js` are `…, 50, 100, 250, 500, …`, so the true
+  ~208 ms p95 falls inside the wide `100–250 ms` bucket and `histogram_quantile`
+  interpolates it up to 242.5 ms — an over-report right around the SLO line.
+
+Note the committed dashboard (`grafana/dashboards/routing-main-path.json`)
+currently has **routing panels only**; it does not display an incident or
+dispatch p95, so the figures above come from ad-hoc Prometheus queries rather
+than the dashboard. The lesson for the dashboard is preventative and is picked
+up under Interpretation: any incident/dispatch panel added on the current
+buckets and service-internal series would be both too coarse and scoped
+differently from what a client (or k6) actually experiences.
 
 ## Comparison against `docs/SLO.md`
 
@@ -178,24 +199,34 @@ SLOs (≥99%) were never the problem; both runs passed all response checks.
 
 **Latency:** improved dramatically on every path, and the tail collapsed most
 of all. Sprint 3's p99 values ranged from ~1.1 s to ~2.5 s; Sprint 5's p99
-values are all within ~5 ms of their p95. Two changes drive this, and one
-caveat qualifies it:
+values are all within ~5 ms of their p95. The improvement appeared *after* the
+Sprint 4/5 changes, but the causes are confounded and should not be pinned on
+any single architectural change:
 
-1. **Async offload (Sprint 4).** `incident-service` now publishes notification
-   work to RabbitMQ instead of doing it inline, so slow notification handling no
-   longer inflates the incident request tail.
-2. **Warm cache + longer run (routing).** Over 60s the five fixed test
+1. **Test environment (largest factor, and a confounder).** The Sprint 3 report
+   itself attributed its very long tails to "shared-container contention" while
+   running three services in a Gantry devcontainer. This Sprint 5 run had far
+   less host contention, which alone accounts for much of the tail collapse.
+   The two runs are therefore *not* a clean apples-to-apples architectural
+   comparison.
+2. **Routing — warm cache + longer run.** Over 60s the five fixed test
    locations keep the Redis route cache warm, so routing is now bimodal: cache
    hits at ~7 ms (the 7.34 ms median) and the occasional miss/TTL-expiry at
    ~210 ms (the 200 ms `ROUTING_LATENCY_MS` floor). Sprint 3's shorter run and
    more cache misses produced a 163 ms median and an 792 ms p95.
-3. **Caveat — environment.** The Sprint 3 report explicitly attributed its very
-   long tails to "shared-container contention" while running three services in a
-   Gantry devcontainer. This Sprint 5 run had far less host contention, so part
-   of the tail improvement is environmental rather than purely architectural.
-   The *direction* (lower, far more stable latency) is consistent with the
-   async + caching + health-gated-readiness work, but the absolute tail
-   reduction should not be read as a pure apples-to-apples architectural gain.
+3. **Not async offload.** The incident write path did *not* get lighter in
+   Sprint 4. Sprint 3 performed no notification work at all; Sprint 4 *added*
+   RabbitMQ publication and `await`s broker confirmation before responding
+   (the handler awaits both its 200 ms latency and the publish-confirm, and only
+   the worker's processing is left off the request path). If anything this adds
+   a small fixed cost to `POST /incidents`. The incident-path reduction is thus
+   attributable to the less-contended environment and health-gated readiness,
+   not to moving work off the request path.
+
+In short, the *direction* — lower, far more stable latency — is real and
+consistent with the Sprint 4/5 readiness and caching work, but its *magnitude*
+is confounded by the test environment, and the incident-path improvement in
+particular is not caused by async processing.
 
 ## Interpretation
 
@@ -213,18 +244,28 @@ floor with a tiny tail. At 10 VUs with a 1 s sleep the system is nowhere near
 saturation (routing median 7 ms), so this test proves **SLO conformance at
 expected load**, not the saturation point.
 
-A second, subtler bottleneck is in the **observability layer itself**: the
-histogram buckets (`…100, 250, 500…`) are too coarse around the 250 ms and
-300 ms SLO thresholds. The Grafana dashboard's p95 panel interpolates
-incident-service to ~242 ms and would report the SLO as *met* when k6 shows it
-*missed* by 21 ms. A dashboard that can't distinguish 242 ms from 272 ms at a
-250 ms SLO boundary can mask exactly the marginal breaches it exists to catch.
+A second, subtler issue lives in the **observability layer itself**, and it has
+two independent parts:
+
+- **Bucket coarseness.** The histogram buckets (`…, 50, 100, 250, 500, …`)
+  cannot resolve latencies against the 250 ms / 300 ms SLO lines. Dispatch shows
+  this directly: a true ~208 ms p95 (per k6) is interpolated up to 242.5 ms by
+  `histogram_quantile`. Any p95 panel built on these buckets will misreport near
+  an SLO threshold.
+- **Measurement scope.** A service-internal series (e.g. `incident-service`)
+  excludes the ambassador hop that a client actually experiences and that k6
+  measures end-to-end. So a green service-internal panel can coexist with a
+  breached client-facing SLO: incident-service's own p95 (242.5 ms) sits under
+  250 ms, while the full `incident-ambassador → incident-service` p95 that k6
+  measured (271.55 ms) is over it.
 
 **What I would change with another sprint:**
 
-1. **Refine histogram buckets around the SLOs** (e.g. add edges at 150, 200,
-   225, 250, 275, 300 ms) so the Grafana p95 matches k6 near the thresholds and
-   the dashboard can't show a breached SLO as green.
+1. **Make the metrics able to see the SLOs.** Add histogram bucket edges around
+   the thresholds (e.g. 150, 200, 225, 250, 275, 300 ms) so `histogram_quantile`
+   stops over-reporting near the SLO line, and add incident/dispatch dashboard
+   panels measured at the ambassador (client-facing) boundary, not just the
+   service internals — so the dashboard reflects what k6 and real clients see.
 2. **Attack the incident latency floor** — reduce the simulated 200 ms
    processing delay, drop the extra ambassador hop on the write path, or (if the
    250 ms delay is intended to model real work) renegotiate the SLO to ≥300 ms
