@@ -8352,4 +8352,109 @@ Also this should be a seperate Pr Stacked on top of the last one
 Absolutely. I’ll keep PR #26 unchanged and move the staged Shri work onto a new branch based on `video-demo-runbook`, making the new PR’s base branch `video-demo-runbook`. That creates a true stacked PR: Shri’s review shows only his runbook and launcher, while inheriting Bruce’s demo workflow underneath.
 ~~~~~~
 
+## Project Video Austin Architecture Cue Sheet
+
+Raw Codex transcript: `ai/chats/2026-08-11-205441-video-demo-austin-runbook.jsonl`
+
+### Scope and outputs
+
+- Added `docs/VIDEO-DEMO-AUSTIN.md` as a presentation-oriented cue sheet rather
+  than a word-for-word speech.
+- Organized Austin's two minutes around three layout-independent Figma frames:
+  the full system, the replicated routing decision, and the benefit/cost
+  trade-off.
+- Included timed on-screen actions, short talking-point bullets, the measured
+  `297 ms -> 63 ms` cache example, a team closing, and accuracy guardrails.
+- No Figma artifact, application code, service behavior, infrastructure,
+  dependency, Compose configuration, or strict JSON file was changed.
+
+### Verification
+
+- Markdown structure, transcript references, and `git diff --check` passed.
+- The branch was created directly from `video-demo-shri-runbook`, so its pull
+  request is stacked on Shri's PR #27.
+- The cue sheet says ambassadors rather than sidecars, treats Grafana as an
+  observer, and does not claim production readiness.
+
+### Verbatim relevant exchange
+
+#### 1. User prompt
+
+~~~~~~text
+Alright so for my thing should I extend the current service diagram to a figma thing so I can navigate around it well? And can we just write my script assuming I have that without needing to like exactly map to it?
+~~~~~~
+
+#### 2. Assistant response
+
+~~~~~~text
+Yes. Use Figma as a navigable visual layer over the current service diagram, but keep it to three prepared frames instead of freely panning around a giant canvas.
+
+### Suggested Figma frames
+
+1. **Full system**
+   - Phone/client
+   - Incident and notification path
+   - Regional routing path
+   - Dispatch path
+
+2. **Routing decision**
+   - Routing ambassador
+   - Caddy
+   - Three stateless replicas
+   - Shared Redis cache
+
+3. **Benefit and cost**
+   - Benefit: availability, load distribution, faster repeated lookups
+   - Evidence: approximately `297 ms → 63 ms`
+   - Cost: extra hops, cache staleness, more infrastructure and monitoring
+
+Use Figma presentation/prototype links so each click moves predictably to the next frame. The script can reference “this routing path” and “the shared cache” without depending on exact coordinates or layout.
+
+## Austin’s script — approximately 1:45
+
+### Full-system frame
+
+> “Bruce showed a request moving through our services, and Shri showed the routing path responding under concurrent load. I’ll explain the main design decision behind that behavior.”
+
+> “Our system separates incident creation, regional routing, responder dispatch, and asynchronous notification into distinct paths. This keeps each service focused on one responsibility and lets us scale or modify a path independently.”
+
+### Zoom to routing frame
+
+> “Our most important scaling decision was to make regional routing stateless and run three identical replicas behind Caddy.”
+
+> “The routing ambassador gives clients one stable entry point and handles timeouts, retries, and request logging. Caddy then distributes requests across healthy replicas. Because every routing request contains its location and emergency type, any healthy replica can calculate the result.”
+
+> “This improves availability because Caddy can stop sending traffic to an unhealthy replica while the remaining replicas continue serving requests.”
+
+### Highlight Redis
+
+> “The replicas share a Redis cache rather than keeping separate local caches. This means one replica can calculate and cache a route, while a different replica can serve the repeated lookup.”
+
+> “In our measured example, a route-cache miss took about 297 milliseconds, while the repeated cached lookup took about 63 milliseconds.”
+
+### Move to trade-off frame
+
+> “The trade-off is additional operational complexity. A request travels through an ambassador and load balancer before reaching a replica, Redis introduces expiration and stale-data concerns, and every additional container creates another component we have to monitor.”
+
+> “For this simulation, we accepted that complexity because it made replication, caching, failure handling, and observability measurable. It is not yet a production emergency system: it still lacks authentication, durable incident history, and real responder integrations.”
+
+## Closing — 10–15 seconds
+
+> “Together, our demonstration shows a system that starts reproducibly, processes an emergency request end to end, and exposes its behavior under load. Replication and shared caching improved responsiveness and availability, with the explicit cost of additional infrastructure and operational complexity.”
+
+This script is intentionally diagram-agnostic. As long as the three frames communicate full system → routing decision → trade-off, you can rearrange the Figma design freely.
+~~~~~~
+
+#### 3. User prompt
+
+~~~~~~text
+Good for this but keep all of these PRs focused on bullet points like there doing a power point presentation instead of going for like a full script. First things first generate this script with these things in mind and then mount the PR. Then once done, bulletify all of the scripts.
+~~~~~~
+
+#### 4. Assistant response
+
+~~~~~~text
+I’ll treat “script” as a presentation cue sheet, not spoken paragraphs. I’ll first add Austin’s three-frame Figma runbook and open PR #28 stacked on Shri’s PR #27. Then I’ll add a second commit to that same top PR converting Bruce’s and Shri’s runbooks into the same slide-style format, so the final merged stack has consistent bullets without rewriting the two lower PRs.
+~~~~~~
+
 <!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; the Austin and Bruce Sprint 3 completion sections intentionally have no JSONL at the student's direction. -->
