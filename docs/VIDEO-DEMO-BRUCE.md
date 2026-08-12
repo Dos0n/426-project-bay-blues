@@ -1,117 +1,134 @@
-<!-- AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-11-203027-video-demo-runbook.jsonl. -->
+<!-- AI: This file was generated and later reformatted with AI assistance. See AI-DISCLOSURE.md, ai/chats/2026-08-11-203027-video-demo-runbook.jsonl, and ai/chats/2026-08-11-205649-video-demo-bulletify-all-runbooks.jsonl. -->
 
-# Bruce's Two-Minute Video Demo
+# Bruce's Two-Minute System Demo
 
-This runbook covers the first two minutes of the final project video: clean
-Compose startup, individual service checks, and one complete Blue Light request.
+## Goal
+
+- Start the submitted instrumented system from a clean container state.
+- Prove every Compose service is healthy and reachable.
+- Demonstrate one coherent incident-to-dispatch request.
+- Hand the running system to Shri for the live load test.
 
 ## Before recording
 
-Run the complete sequence once, confirm Docker has already downloaded or built
-the images, and increase the terminal font size. Then stop the stack so the
-recording begins from a clean container state:
+- Run the full sequence once.
+- Ensure images are already built or downloaded.
+- Increase the terminal font size.
+- Keep one terminal and this cue sheet visible.
+- Stop existing project containers:
 
-```bash
-cd 426-project--bay-blues-
-docker compose down --remove-orphans
-```
+  ```bash
+  cd 426-project--bay-blues-
+  docker compose down --remove-orphans
+  ```
 
-Keep only this runbook and one large terminal window visible during the demo.
+## Presentation cues
 
-## Recording sequence
+### 0:00–0:10 — Introduce Blue Light
 
-### 1. Introduce the system
+On screen:
 
-Suggested line:
+- Clean terminal in the project root
 
-> Blue Light simulates a mobile emergency request traveling through distributed
-> incident, regional-routing, notification, and responder-dispatch services.
+Talking points:
 
-### 2. Start from a clean state
+- Distributed mobile emergency-response simulation.
+- Incident, regional-routing, notification, and dispatch services.
+- Goal: prove the submitted system starts and serves a real request.
+
+### 0:10–0:30 — Start from a clean state
+
+Action:
 
 ```bash
 docker compose up -d
 ```
 
-Suggested line:
+Talking points:
 
-> The complete instrumented system starts with one Docker Compose command.
+- One command starts the complete instrumented system.
+- Same Compose state submitted in the repository.
 
-### 3. Show every container
+### 0:30–0:40 — Show the containers
+
+Action:
 
 ```bash
 docker compose ps
 ```
 
-Suggested line:
+Talking points:
 
-> Compose has started the application services, proxies, replicated routing
-> path, Redis, RabbitMQ, Prometheus, and Grafana.
+- Application services and ambassadors.
+- Three routing replicas behind Caddy.
+- Redis and RabbitMQ.
+- Prometheus and Grafana.
+- `health: starting` is acceptable here; the next command waits for readiness.
 
-Some containers may still display `health: starting`. The next command waits
-for all thirteen services and then checks each one using its HTTP or native
-health protocol.
+### 0:40–1:10 — Check every service
 
-### 4. Check every service separately
+Action:
 
 ```bash
 ./scripts/demo-health.sh
 ```
 
-Suggested line:
+Talking points:
 
-> Every service is now healthy and reachable through its real protocol, not
-> merely listed as a running container.
+- Thirteen separate service checks.
+- HTTP checks for application and observability services.
+- Native checks for Redis and RabbitMQ.
+- More evidence than container process state alone.
 
-### 5. Run the end-to-end request
+Expected result:
+
+- `PASS` for all 13 Compose services.
+
+### 1:10–1:50 — Run the emergency-request flow
+
+Action:
 
 ```bash
 ./scripts/demo-incident-flow.sh
 ```
 
-Suggested narration while the script runs:
+Talking points:
 
-> This script acts as the simulated phone client. It reports a medical incident
-> through the incident ambassador, passes the returned location and emergency
-> type to the routing ambassador, and sends the selected response-group ID with
-> the real incident ID to the dispatch service. Finally, it reads the saved
-> dispatch back to verify the assignment.
+- Script acts as the simulated phone client.
+- Create incident through the incident ambassador.
+- Pass returned location and emergency type to the routing ambassador.
+- Routing service selects a region and response group.
+- Send real `incidentId` and selected `teamId` to dispatch.
+- Read the saved dispatch back by `dispatchId`.
 
-The services do not bypass their existing API boundaries. The demo client
-coordinates the flow by extracting `incidentId` from incident creation and
-`responseGroup.id` from routing before submitting the dispatch request.
+Expected proof:
 
-Expected final output:
+- Generated incident UUID.
+- North Campus route.
+- Named routing replica and cache status.
+- UMPD / EMS North assignment.
+- Assigned status and simulated ETA.
+- Final `PASS  incident -> routing -> dispatch`.
 
-```text
-BLUE LIGHT REQUEST COMPLETED
+### 1:50–2:00 — Handoff to Shri
 
-Incident:  <generated UUID> — medical emergency
-Region:    North Campus
-Routed by: regional-routing-service-<replica> (MISS or HIT)
-Team:      UMPD / EMS North
-Dispatch:  assigned — ETA <minutes> minutes
+Talking points:
 
-PASS  incident -> routing -> dispatch
-```
+- One request completed end to end.
+- System remains running and instrumented.
+- Shri will apply concurrent load.
+- Grafana will show the same routing path live.
 
-### 6. Handoff to Shri
+## Recovery bullets
 
-Suggested line:
-
-> We have shown one request end to end. Shri will now apply concurrent load and
-> show how the same instrumented paths appear live in Grafana.
-
-## Recovery commands
-
-If the health script reports a failure, inspect the service named in the error:
+If a service fails:
 
 ```bash
 docker compose ps
 docker compose logs --tail 50 SERVICE_NAME
 ```
 
-Restart from a clean container state if needed:
+If the demo needs a clean restart:
 
 ```bash
 docker compose down --remove-orphans
@@ -119,4 +136,4 @@ docker compose up -d
 ./scripts/demo-health.sh
 ```
 
-<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-11-203027-video-demo-runbook.jsonl. -->
+<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/2026-08-11-203027-video-demo-runbook.jsonl, and ai/chats/2026-08-11-205649-video-demo-bulletify-all-runbooks.jsonl. -->

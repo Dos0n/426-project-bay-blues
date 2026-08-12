@@ -1,112 +1,143 @@
-<!-- AI: This file was generated with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-11-204715-video-demo-shri-runbook-stacked.jsonl. -->
+<!-- AI: This file was generated and later reformatted with AI assistance. See AI-DISCLOSURE.md, ai/chats/2026-08-11-204715-video-demo-shri-runbook-stacked.jsonl, and ai/chats/2026-08-11-205649-video-demo-bulletify-all-runbooks.jsonl. -->
 
 # Shri's Two-Minute Grafana Demo
 
-This runbook begins immediately after Bruce's healthy-stack and end-to-end
-request demonstration. It shows live Grafana movement while the committed final
-k6 workload runs.
+## Goal
 
-## What this segment proves
+- Apply the committed final workload live.
+- Show Grafana changing while k6 is still running.
+- Explain request rate, error rate, and p95 latency.
+- Report the measured outcome honestly.
+- Hand the architecture story to Austin.
 
-- k6 creates concurrent traffic against the running Compose system.
-- Prometheus scrapes the instrumented services every five seconds.
-- Grafana refreshes live request rate, error rate, and p95 latency for the
-  public routing path.
+## Dashboard scope
 
-The provisioned dashboard observes only
-`regional-routing-ambassador GET /route`. The k6 workload also creates incidents
-and dispatches, but those two paths do not appear in this dashboard.
+- Grafana observes `regional-routing-ambassador GET /route`.
+- k6 also creates incidents and dispatches.
+- Incident and dispatch traffic do not appear on this routing-only dashboard.
+- Grafana observes behavior; it does not change or fix the system.
 
 ## Before recording
 
-Complete these steps before anyone records:
+- Confirm Gantry is running.
+- Confirm k6 is available:
 
-1. Confirm the Gantry devcontainer is running and already provides k6:
+  ```bash
+  k6 version
+  ```
 
-   ```bash
-   k6 version
-   ```
+- Open `http://localhost:3006`.
+- Log in before recording.
+  - Default username: `admin`
+  - Default password: `admin`
+- Handle any forced password-change prompt.
+- Open **Dashboards → Regional routing — GET /route**.
+- Set time range to **Last 5 minutes**.
+- Keep auto-refresh at **5s**.
+- Place Grafana and a large terminal side by side.
+- Keep all three panels visible:
+  - Request rate
+  - Error rate
+  - p95 latency
+- Rehearse once.
+- Allow rehearsal data to age outside the five-minute window if a clean graph is
+  preferred.
+- Do not manually import the dashboard or configure the datasource.
 
-2. Open `http://localhost:3006` and log in. The default credentials are
-   `admin` / `admin`; handle any password-change prompt before recording.
-3. Open **Dashboards → Regional routing — GET /route**.
-4. Set the time range to **Last 5 minutes** and leave auto-refresh at **5s**.
-5. Arrange Grafana and a large terminal side by side. Keep all three panels
-   visible: request rate, error rate, and p95 latency.
-6. Rehearse `./scripts/demo-load.sh` once, then let those metrics age outside the
-   five-minute window before the final recording if you want a cleaner graph.
+## Presentation cues
 
-Do not manually reconfigure the datasource or import the dashboard. Both are
-provisioned by Compose and must be shown in the repository's submitted state.
+### 0:00–0:10 — Accept Bruce's handoff
 
-## Recording sequence
+On screen:
 
-### 1. Accept Bruce's handoff
+- Grafana and terminal side by side
 
-Suggested line:
+Talking points:
 
-> Bruce showed one request moving through the system. I will now run our
-> committed final workload and show how the routing path behaves under
-> concurrent traffic.
+- Bruce: one request completed end to end.
+- Shri: concurrent load and live observability.
+- Focus: public regional-routing path.
 
-### 2. Start k6 live
+### 0:10–0:20 — Start k6 live
 
-Run this command on camera:
+Action:
 
 ```bash
 ./scripts/demo-load.sh
 ```
 
-The wrapper discovers the active Compose network, temporarily connects the
-Gantry devcontainer when necessary, and runs its included k6 against
-`load-tests/sprint-5-load.js`. The committed test uses 10 virtual users for 60
-seconds and does not overwrite the saved final results.
+Talking points:
 
-### 3. Explain the moving Grafana panels
+- Existing committed Sprint 5 workload.
+- Ten virtual users.
+- Sixty-second duration.
+- Gantry runs k6 on the active Compose network.
+- Saved final-result artifacts remain unchanged.
 
-As the panels update, use these cues:
+### 0:20–0:50 — Request-rate panel
 
-- **Request rate:**
+On screen:
 
-  > The request-rate line rises because k6 is repeatedly calling `GET /route`
-  > through the routing ambassador, Caddy, and our three routing replicas.
+- Request-rate graph rising
+- k6 progress visible beside it
 
-- **Error rate:**
+Talking points:
 
-  > The error-rate panel tracks non-2xx routing responses. It should remain at
-  > zero while the system handles this workload successfully.
+- Repeated `GET /route` requests.
+- Requests enter through the routing ambassador.
+- Caddy distributes work across three replicas.
+- Panel reports requests per second.
+- Rising line proves live load is reaching the instrumented path.
 
-- **p95 latency:**
+### 0:50–1:15 — Error-rate panel
 
-  > p95 is the response time at or below which 95 percent of routing requests
-  > complete. It shows the slower end of the user experience, not just an
-  > average that can hide slow requests.
+On screen:
 
-Keep Grafana visible long enough for at least two refreshes so the viewer can
-clearly see live movement rather than a static dashboard.
+- Error-rate graph
 
-### 4. Read the k6 result accurately
+Talking points:
 
-When the run finishes, the terminal may report the documented incident-latency
-threshold as crossed. That is an honest measured result, not a failed demo: the
-final report records 0% HTTP errors, a routing p95 around 211 ms within its
-400 ms SLO, and an incident p95 around 272 ms just above its 250 ms SLO.
+- Percentage of non-2xx routing responses.
+- Expected result under this workload: `0%`.
+- Reliability measurement, not a claim that failure is impossible.
 
-Suggested line if the crossed threshold is visible:
+### 1:15–1:40 — p95-latency panel
 
-> The routing path shown in Grafana remained reliable and met its latency SLO.
-> Our separate incident path stayed reliable but narrowly missed its latency
-> target, which we document as a design limitation rather than hiding it.
+On screen:
 
-### 5. Handoff to Austin
+- p95-latency graph
 
-Suggested line:
+Talking points:
 
-> The live data shows that the routing path remains observable and responsive
-> under load. Austin will explain the replication and shared-cache decisions
-> behind that behavior, including their cost.
+- Ninety-five percent of routing requests finish at or below this value.
+- More informative about slow users than a simple average.
+- Routing SLO: p95 below `400 ms`.
+- Recorded final routing p95: approximately `211 ms`.
+- Leave Grafana visible for at least two five-second refreshes.
 
-## Recovery directions
+### 1:40–1:50 — Read the outcome honestly
+
+On screen:
+
+- k6 summary or live terminal progress
+
+Outcome bullets:
+
+- Routing: `0%` errors and latency SLO met.
+- Separate incident path: reliable but narrowly above its latency target.
+- Documented incident result: approximately `272 ms` versus `250 ms` SLO.
+- A visible crossed incident threshold is a measured limitation, not a broken
+  routing demo.
+
+### 1:50–2:00 — Handoff to Austin
+
+Talking points:
+
+- Routing remained observable and responsive under load.
+- Austin explains the design behind that behavior.
+- Focus next: replication, shared Redis, and their cost.
+
+## Recovery bullets
 
 If Grafana is empty:
 
@@ -116,15 +147,17 @@ curl -fsS http://localhost:9090/-/healthy
 curl -fsS http://localhost:3006/api/health
 ```
 
-Then confirm the dashboard time range includes the current time and wait at
-least ten seconds for a Prometheus scrape plus two Grafana refreshes.
+Then check:
 
-If the wrapper cannot find the Compose network, confirm Bruce's stack is still
-running:
+- Dashboard time range includes now.
+- Prometheus has had at least one five-second scrape.
+- Grafana has had at least two refreshes.
+
+If the launcher cannot find the network:
 
 ```bash
 docker compose ps
 ./scripts/demo-health.sh
 ```
 
-<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/2026-08-11-204715-video-demo-shri-runbook-stacked.jsonl. -->
+<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md, ai/chats/2026-08-11-204715-video-demo-shri-runbook-stacked.jsonl, and ai/chats/2026-08-11-205649-video-demo-bulletify-all-runbooks.jsonl. -->

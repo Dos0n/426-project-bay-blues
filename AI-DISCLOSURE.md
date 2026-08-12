@@ -8457,4 +8457,61 @@ Good for this but keep all of these PRs focused on bullet points like there doin
 I’ll treat “script” as a presentation cue sheet, not spoken paragraphs. I’ll first add Austin’s three-frame Figma runbook and open PR #28 stacked on Shri’s PR #27. Then I’ll add a second commit to that same top PR converting Bruce’s and Shri’s runbooks into the same slide-style format, so the final merged stack has consistent bullets without rewriting the two lower PRs.
 ~~~~~~
 
+## Project Video Presentation-Bullet Reformat
+
+Raw Codex transcript: `ai/chats/2026-08-11-205649-video-demo-bulletify-all-runbooks.jsonl`
+
+### Scope and outputs
+
+- Reformatted `docs/VIDEO-DEMO-BRUCE.md` from suggested spoken paragraphs into
+  timed presentation bullets organized by screen, action, talking points, and
+  expected proof.
+- Reformatted `docs/VIDEO-DEMO-SHRI.md` into the same presentation-cue format,
+  preserving the live Grafana requirements, routing-only dashboard scope,
+  honest incident-threshold explanation, and Austin handoff.
+- Kept `docs/VIDEO-DEMO-AUSTIN.md` in the bullet-oriented format in which it was
+  initially created.
+- Preserved every executable command and did not modify the three demo scripts,
+  service behavior, infrastructure, dependencies, Compose configuration, or
+  strict JSON files.
+
+### Verification
+
+- All three runbooks contain timed sections and bullet-based talking points.
+- Bruce's runbook still covers clean Compose startup, all thirteen service
+  checks, the stateful incident-to-dispatch flow, and Shri's handoff.
+- Shri's runbook still covers live k6, two or more Grafana refreshes, request
+  rate, error rate, p95 latency, the known incident threshold miss, and Austin's
+  handoff.
+- Austin's runbook remains layout-independent and covers one design decision,
+  measured benefit, explicit cost, and the team closing.
+- AI markers, the matching raw transcript, Markdown structure, and
+  `git diff --check` passed.
+
+### Verbatim relevant exchange
+
+#### 1. User prompt
+
+~~~~~~text
+Good for this but keep all of these PRs focused on bullet points like there doing a power point presentation instead of going for like a full script. First things first generate this script with these things in mind and then mount the PR. Then once done, bulletify all of the scripts.
+~~~~~~
+
+#### 2. Assistant response
+
+~~~~~~text
+I’ll treat “script” as a presentation cue sheet, not spoken paragraphs. I’ll first add Austin’s three-frame Figma runbook and open PR #28 stacked on Shri’s PR #27. Then I’ll add a second commit to that same top PR converting Bruce’s and Shri’s runbooks into the same slide-style format, so the final merged stack has consistent bullets without rewriting the two lower PRs.
+~~~~~~
+
+#### 3. Assistant response
+
+~~~~~~text
+Austin’s cue sheet is ready as a genuinely presentation-style artifact: three Figma frames, timed screen actions, short talking points, the measured cache evidence, trade-off bullets, and the closing. It does not depend on the diagram’s exact geometry. I’m opening its stacked PR now before touching the other two runbooks, matching the requested order.
+~~~~~~
+
+#### 4. Assistant response
+
+~~~~~~text
+PR #28 is open and correctly stacked on #27. I’m now doing the second requested pass in that top PR only: Bruce and Shri will use the same “screen / action / talking points / timing” structure as Austin, with commands preserved but spoken paragraphs removed.
+~~~~~~
+
 <!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; the Austin and Bruce Sprint 3 completion sections intentionally have no JSONL at the student's direction. -->
