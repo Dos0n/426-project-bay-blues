@@ -139,6 +139,27 @@ fault-injected, and asynchronous paths across all eight custom containers,
 rejects any non-JSON service line, validates the required fields, and confirms
 that all eight Prometheus scrape targets remain up.
 
+<!-- AI: The final k6 command was copied from the verified Sprint 5 results report with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-13-092312-final-readme-k6-env-pr.jsonl. -->
+## Run the Final k6 Load Test
+
+From the repository root, start the fully instrumented system and run the
+committed 10-VU, 60-second workload on the Compose network:
+
+```bash
+docker compose up --build -d
+
+docker run --rm --network 426-project-bay-blues_default \
+  -e BASE_URL=http://regional-routing-ambassador:3000 \
+  -e INCIDENT_BASE_URL=http://incident-ambassador:3000 \
+  -e DISPATCH_BASE_URL=http://responder-dispatch-service:3000 \
+  -v "$PWD/load-tests:/scripts:ro" -v "$PWD/results:/results" \
+  grafana/k6 run --summary-export=/results/sprint-5-k6-summary.json \
+  /scripts/sprint-5-load.js
+```
+
+The complete measured run and its interpretation are in
+[results/sprint-5-load-test.md](results/sprint-5-load-test.md).
+
 ## Environment Variables
 
 All variables are optional. When a variable is missing, Compose uses the local
@@ -160,6 +181,8 @@ default shown below.
 | `INCIDENT_AMBASSADOR_PROCESSING_DELAY_MS` | `50` | Simulated ambassador processing overhead |
 | `DISPATCH_SERVICE_PORT` | `3004` | Dispatch service host port |
 | `DISPATCH_LATENCY_MS` | `200` | Simulated dispatch response latency |
+| `DISPATCH_FAULT_MODE` | `off` | Dispatch fault injection: `off`, `error` (HTTP 503 and unhealthy), or `slow` |
+| `DISPATCH_FAULT_LATENCY_MS` | `6000` | Extra dispatch delay in milliseconds when fault mode is `slow` |
 | `RABBITMQ_USER` | `blue-light-app` | Local RabbitMQ username |
 | `RABBITMQ_PASSWORD` | `blue-light-local-only` | Local-only RabbitMQ password |
 | `RABBITMQ_AMQP_PORT` | `5672` | RabbitMQ AMQP host port |
