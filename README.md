@@ -139,7 +139,7 @@ fault-injected, and asynchronous paths across all eight custom containers,
 rejects any non-JSON service line, validates the required fields, and confirms
 that all eight Prometheus scrape targets remain up.
 
-<!-- AI: The final k6 command was copied from the verified Sprint 5 results report with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-13-final-readme-k6-env.jsonl. -->
+<!-- AI: The final k6 command was copied from the verified Sprint 5 results report with AI assistance. See AI-DISCLOSURE.md and ai/chats/2026-08-13-092312-final-readme-k6-env-pr.jsonl. -->
 ## Run the Final k6 Load Test
 
 From the repository root, start the fully instrumented system and run the

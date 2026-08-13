@@ -8650,4 +8650,139 @@ I found the top stacked branch, `video-demo-austin-runbook`, and its cue sheet. 
 The cue sheet now opens each Figma frame through its direct node link and names the exact objects to trace: the three Frame 1 rows, the Frame 2 route/evidence cards, and the Frame 3 result, trade-off columns, and production guardrail. The timed sections remain short bullets. I’m recording this focused update, then I’ll commit and push it onto the existing top stacked PR.
 ~~~~~~
 
+## Final README k6 Command and Dispatch Fault Variables
+
+Raw Codex transcript:
+`ai/chats/2026-08-13-092312-final-readme-k6-env-pr.jsonl`
+
+### Scope and outputs
+
+- Added the exact final Sprint 5 k6 command to `README.md`.
+- Documented `DISPATCH_FAULT_MODE` and `DISPATCH_FAULT_LATENCY_MS` with their
+  Compose defaults and behavior.
+- Opened PR #29, added this disclosure record, and merged it at the student's
+  direction after validation.
+- Did not modify `results/sprint-5-load-test.md` or fabricate Bruce's missing
+  Sprint 5 load-test transcript. Bruce must supply the genuine raw source chat
+  and matching complete disclosure entry for that work.
+
+### Verbatim relevant exchange
+
+#### 1. User prompt
+
+~~~~~~text
+Not fully complete yet, but the technical system is in very good shape.
+
+  Verified on the live public main branch (5daec76):
+
+  - Clean exported copy built successfully.
+  - All 13 containers became healthy.
+  - Main routing endpoint worked.
+  - Prometheus reported 8/8 targets up.
+  - Grafana dashboard auto-loaded with the three required panels.
+  - Structured logging verification passed every custom service.
+  - Final k6 report and architecture diagram contain the required content.
+
+  Remaining gaps:
+
+  1. 426-project--bay-blues-/README.md:174 does not include the final k6 command. The command exists in the results report, but the rubric explicitly
+     requires it in the README.
+
+  2. The README environment table omits DISPATCH_FAULT_MODE and DISPATCH_FAULT_LATENCY_MS.
+  3. 426-project--bay-blues-/results/sprint-5-load-test.md:1 cites the invalid placeholder ai/chats/.. I found no matching Sprint 5 load-test JSONL or
+     complete disclosure entry on main. Bruce should supply the genuine raw transcript rather than anyone recreating it.
+
+  So: functionally complete, but not submission-complete until those documentation/disclosure fixes are merged into main.
+
+  I removed only the temporary audit stack and exported copies; the existing project containers and working tree were untouched Submit a PR to fix the top 2 things, and then how should I notify that they must include the chat? is it me?
+~~~~~~
+
+#### 2. Assistant response
+
+~~~~~~text
+I’ll patch the README’s k6 command and missing environment variables, verify the exact commands against the project files, then create a focused branch/commit/PR. I’m also using the repository’s AI-disclosure skill because this PR itself is AI-assisted and the project rules require both disclosure records.
+~~~~~~
+
+#### 3. Assistant response
+
+~~~~~~text
+The current project checkout is on an unrelated video branch and has an untracked `poster/` directory, so I’m leaving it untouched. I’ll make the fix in a separate worktree based on the current public `main`, which keeps this PR isolated from teammate work.
+~~~~~~
+
+#### 4. Assistant response
+
+~~~~~~text
+I found the exact final command in the committed Sprint 5 report and the canonical defaults in both Compose and `.env.example`. The README patch will copy that runnable command verbatim and document fault mode as `off | error | slow`, with the slow-mode delay defaulting to 6000 ms.
+~~~~~~
+
+#### 5. User prompt
+
+~~~~~~text
+Once complete, add this chat to that Pr and then merge it
+~~~~~~
+
+#### 6. Assistant response
+
+~~~~~~text
+Understood. I’ll include this session’s genuine raw JSONL plus a verbatim disclosure entry on the same PR, then merge only after the branch is updated and the PR checks/review state permit it. I will not alter or fabricate Bruce’s missing Sprint 5 transcript.
+~~~~~~
+
+#### 7. Assistant response
+
+~~~~~~text
+The branch is pushed successfully. The GitHub CLI token is expired, so I’m switching to the signed-in browser session to open the PR and later merge it; this is the Chrome-control skill’s intended use when existing login state matters.
+~~~~~~
+
+#### 8. User prompt
+
+~~~~~~text
+USe the gh cli what
+~~~~~~
+
+#### 9. Assistant response
+
+~~~~~~text
+You’re right—I’ll use `gh` only. Its stored token is expired, so I’ll refresh the CLI authentication, then create, update, verify, and merge the PR through `gh`.
+~~~~~~
+
+#### 10. Assistant response
+
+~~~~~~text
+GitHub CLI needs its device authorization completed. In the browser page it opened, enter code `4741-D3A2` and approve access; I’ll keep the CLI session waiting and continue automatically.
+~~~~~~
+
+#### 11. User prompt
+
+~~~~~~text
+whats the brwoser page it opened
+~~~~~~
+
+#### 12. Assistant response
+
+~~~~~~text
+It opened: https://github.com/login/device
+
+Enter code: **4741-D3A2**
+
+Approve the GitHub CLI authorization, then tell me when it’s done.
+~~~~~~
+
+#### 13. User prompt
+
+~~~~~~text
+Its done
+~~~~~~
+
+#### 14. Assistant response
+
+~~~~~~text
+Great—I’ll confirm the CLI session, then finish the disclosure commit, create the PR, check it, and merge it.
+~~~~~~
+
+#### 15. Assistant response
+
+~~~~~~text
+PR [#29](https://github.com/Dos0n/426-project-bay-blues/pull/29) is open. I’m now adding this session’s raw JSONL and verbatim disclosure to that PR; the disclosure will explicitly state that Bruce’s missing source chat remains his responsibility.
+~~~~~~
+
 <!-- AI: End AI-assisted disclosure document. Existing earlier sections reference their matching raw transcripts; the Austin and Bruce Sprint 3 completion sections intentionally have no JSONL at the student's direction. -->
