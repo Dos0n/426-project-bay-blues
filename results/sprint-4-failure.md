@@ -1,4 +1,4 @@
-<!-- AI: This file was generated with AI assistance. See AI-DISCLOSURE.md. -->
+<!-- AI: This file was generated with AI assistance. See AI-DISCLOSURE.md ("Sprint 4 Task 3: Bruce Dispatch Fault Injection") and ai/chats/dos0n-sprint4/2026-08-10-sprint4-task3-failure-scenario-chat.md. -->
 
 # Sprint 4 Failure Scenario — responder-dispatch-service fault injection
 
@@ -154,4 +154,4 @@ faulted request are observable:
 {"level":"warn","service":"responder-dispatch-service","event":"dispatch_fault_injected","faultMode":"slow","method":"POST","path":"/dispatches","extraLatencyMs":6000}
 ```
 
-<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md. -->
+<!-- AI: End AI-assisted file. See AI-DISCLOSURE.md and ai/chats/dos0n-sprint4/2026-08-10-sprint4-task3-failure-scenario-chat.md. -->

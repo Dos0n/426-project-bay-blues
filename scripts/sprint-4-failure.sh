@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # AI: This file was generated with AI assistance for Sprint 4 Task 3 (scripted failure
-# scenario). See AI-DISCLOSURE.md and results/sprint-4-failure.md.
+# scenario). See AI-DISCLOSURE.md and
+# ai/chats/dos0n-sprint4/2026-08-10-sprint4-task3-failure-scenario-chat.md.
 #
 # Drives the responder-dispatch-service fault-injection scenario against a running
 # stack (start it first with: docker compose up --build -d). It toggles the fault
@@ -170,4 +171,5 @@ printf 'PASS dispatch recovered: Docker healthy and POST /dispatches 201\n'
 
 phase "Sprint 4 scripted failure scenario complete"
 printf 'PASS responder-dispatch-service fault injection verified end to end\n'
-# AI: End AI-assisted file. See AI-DISCLOSURE.md and results/sprint-4-failure.md.
+# AI: End AI-assisted file. See AI-DISCLOSURE.md and
+# ai/chats/dos0n-sprint4/2026-08-10-sprint4-task3-failure-scenario-chat.md.
